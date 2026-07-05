@@ -42,6 +42,7 @@ export default function AIDemoWidget() {
     "Chitkara University",
     "MGR University",
     "Sri Lalithambigai Medical College & Hospital",
+    "Dhanalakshmi College of Engineering & Technology",
   ];
   const isLiveKitActive = livekitIndustries.includes(industry || "");
 

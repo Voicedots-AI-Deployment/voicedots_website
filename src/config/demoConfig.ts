@@ -145,4 +145,15 @@ export const DEMO_AVATARS: Record<
     ],
     agent_id: "voicedots_agent_8kqz4m2h1n9d7x5t3w0v6pajcylrbsfe",
   },
+
+  "Dhanalakshmi College of Engineering & Technology": {
+    title: "Dhanalakshmi College of Engineering & Technology",
+    avatars: [
+      { name: "About", role: "About Us", image: "/animations/sales.lottie" },
+      { name: "Courses", role: "Courses", image: "/animations/general.lottie" },
+      { name: "Admission", role: "Admissions Assistant", image: "/animations/srk.lottie" },
+      { name: "Placement", role: "Placement Assistant", image: "/animations/cto.lottie" },
+    ],
+    agent_id: "voicedots_agent_dscet9m2q1h8z5t6w3v0pajcylrbsfde",
+  },
 }
