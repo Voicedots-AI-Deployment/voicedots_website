@@ -43,6 +43,7 @@ export default function AIDemoWidget() {
     "MGR University",
     "Sri Lalithambigai Medical College & Hospital",
     "Dhanalakshmi College of Engineering & Technology",
+    "Sapthagiri NPS University",
   ];
   const isLiveKitActive = livekitIndustries.includes(industry || "");
 

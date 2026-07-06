@@ -156,4 +156,16 @@ export const DEMO_AVATARS: Record<
     ],
     agent_id: "voicedots_agent_dscet9m2q1h8z5t6w3v0pajcylrbsfde",
   },
+
+  "Sapthagiri NPS University": {
+    title: "Sapthagiri NPS University AI Team",
+    avatars: [
+      // name must match the agent's subagent key (spaces become underscores) for glow
+      { name: "About Us", role: "About Us", image: "/animations/sales.lottie" },
+      { name: "Courses", role: "Courses", image: "/animations/support.lottie" },
+      { name: "Admissions", role: "Admissions", image: "/animations/receptionist.lottie" },
+      { name: "Placements", role: "Placements", image: "/animations/ceo.lottie" },
+    ],
+    agent_id: "voicedots_agent_sn_7q4m8p2v6k1z9r5t0h3c8d4x",
+  },
 }

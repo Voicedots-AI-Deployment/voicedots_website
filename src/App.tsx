@@ -15,6 +15,7 @@ import { BlogsSection } from "@/components/BlogsPage";
 import { TermsAndConditionsPage } from "./pages/TermsAndConditions";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicy";
 import { DmkPage } from "@/pages/DmkPage";
+import SapthagiriPage from "@/pages/SapthagiriPage";
 import { SecureDataPage } from "@/pages/SecureDataPage";
 import EcomPage from "@/pages/EcomPage";
 import AIDemoWidget from "@/components/widgets/AIDemoWidget";
@@ -94,6 +95,7 @@ export function App() {
             <Route path="/terms" element={<TermsAndConditionsPage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
             <Route path="/dmk" element={<DmkPage />} />
+            <Route path="/sapthagiri" element={<SapthagiriPage />} />
             <Route path="/blogs" element={<BlogsSection />} />
             <Route path="/blogs/:slug" element={<BlogPostPage />} />
             <Route path="/secure-data" element={<SecureDataPage />} />

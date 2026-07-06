@@ -15,6 +15,7 @@ const INDUSTRIES = [
   "Sri Lalithambigai Medical College & Hospital",
   "S.A College of Arts & Science",
   "Dhanalakshmi College of Engineering & Technology",
+  "Sapthagiri NPS University",
 ];
 
 const GOLDEN_INDUSTRIES = ["E-Commerce", "Travel"];
@@ -34,6 +35,7 @@ export const INDUSTRY_USAGE: Record<string, string> = {
   "Sri Lalithambigai Medical College & Hospital": "Get information about Sri Lalithambigai Medical College & Hospital",
   "S.A College of Arts & Science": "Get information about S.A College of Arts & Science",
   "Dhanalakshmi College of Engineering & Technology": "Get information about Dhanalakshmi College of Engineering & Technology's courses, admissions, and placements",
+  "Sapthagiri NPS University": "Get information about Sapthagiri NPS University's courses, admissions, and placements",
 };
 
 const containerVariants = {
