@@ -49,6 +49,7 @@ export function useSarvamController() {
     const playCtxRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
     const nextPlayRef = useRef(0);
+    const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const playDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
     const audioElRef = useRef<HTMLAudioElement | null>(null);
     const micMutedRef = useRef(false);
@@ -164,9 +165,26 @@ export function useSarvamController() {
         const startAt = Math.max(ctx.currentTime, nextPlayRef.current);
         src.start(startAt);
         nextPlayRef.current = startAt + buffer.duration;
+        activeSourcesRef.current.push(src);
+        src.onended = () => {
+            const a = activeSourcesRef.current;
+            const i = a.indexOf(src);
+            if (i >= 0) a.splice(i, 1);
+        };
+    };
+
+    // Barge-in / stop: kill everything already scheduled, otherwise new speech
+    // overlaps the old tail and sounds like reverb.
+    const stopPlayback = () => {
+        for (const s of activeSourcesRef.current) {
+            try { s.stop(); } catch { /* already ended */ }
+        }
+        activeSourcesRef.current = [];
+        nextPlayRef.current = 0;
     };
 
     const cleanup = () => {
+        stopPlayback();
         wsRef.current?.close(); wsRef.current = null;
         streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
         micCtxRef.current?.close().catch(() => {}); micCtxRef.current = null;
@@ -304,7 +322,7 @@ export function useSarvamController() {
                     if (msg.type === "TOOL_CALL") {
                         await handleToolCall(msg);
                     } else if (msg.type === "UserStartedSpeaking") {
-                        nextPlayRef.current = 0;   // barge-in: drop queued agent audio
+                        stopPlayback();   // barge-in: silence queued agent audio
                         setIsSpeaking(false);
                     } else if (msg.type === "Latency") {
                         setIsSpeaking(true);
