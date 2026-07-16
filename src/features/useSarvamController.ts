@@ -16,6 +16,78 @@ const WS_URL = import.meta.env.VITE_SARVAM_WS_URL || "wss://voice.voicedots.io/w
 const MIC_SAMPLE_RATE = 16000;
 const AGENT_SAMPLE_RATE = 24000;
 
+// All audio processing lives in AudioWorklets (audio thread): the website's main
+// thread is busy with React/Lottie rendering, and main-thread audio (ScriptProcessor
+// or per-chunk source scheduling) glitches whenever it janks. The player keeps a
+// small ring buffer and re-primes after underruns; the mic downsamples to 16k.
+const WORKLET_SRC = `
+class PcmPlayer extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.queue = []; this.offset = 0; this.buffered = 0; this.primed = false;
+    this.port.onmessage = (e) => {
+      if (e.data === "clear") { this.queue = []; this.offset = 0; this.buffered = 0; this.primed = false; return; }
+      const int16 = new Int16Array(e.data);
+      const f = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) f[i] = int16[i] / 32768;
+      this.queue.push(f); this.buffered += f.length;
+    };
+  }
+  process(inputs, outputs) {
+    const out = outputs[0][0];
+    if (!this.primed) {
+      if (this.buffered >= 2880) this.primed = true;    // ~120ms @ 24k
+      else { out.fill(0); return true; }
+    }
+    let i = 0;
+    while (i < out.length && this.queue.length) {
+      const cur = this.queue[0];
+      const n = Math.min(out.length - i, cur.length - this.offset);
+      out.set(cur.subarray(this.offset, this.offset + n), i);
+      i += n; this.offset += n; this.buffered -= n;
+      if (this.offset >= cur.length) { this.queue.shift(); this.offset = 0; }
+    }
+    if (i < out.length) {
+      out.fill(0, i);
+      if (!this.queue.length) { this.primed = false; this.port.postMessage("drained"); }
+    }
+    return true;
+  }
+}
+registerProcessor("pcm-player", PcmPlayer);
+
+class MicCapture extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.acc = []; this.accLen = 0;
+    this.ratio = sampleRate / ${MIC_SAMPLE_RATE};
+  }
+  process(inputs) {
+    const inp = inputs[0] && inputs[0][0];
+    if (!inp) return true;
+    this.acc.push(new Float32Array(inp)); this.accLen += inp.length;
+    if (this.accLen >= 2048 * this.ratio) {
+      const all = new Float32Array(this.accLen);
+      let o = 0; for (const a of this.acc) { all.set(a, o); o += a.length; }
+      this.acc = []; this.accLen = 0;
+      const outLen = Math.floor(all.length / this.ratio);
+      const out = new Int16Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        const from = Math.floor(i * this.ratio);
+        const to = Math.min(Math.floor((i + 1) * this.ratio), all.length);
+        let s = 0; for (let j = from; j < to; j++) s += all[j];
+        const v = Math.max(-1, Math.min(1, s / Math.max(1, to - from)));
+        out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+      }
+      this.port.postMessage(out.buffer, [out.buffer]);
+    }
+    return true;
+  }
+}
+registerProcessor("mic-capture", MicCapture);
+`;
+const workletUrl = () => URL.createObjectURL(new Blob([WORKLET_SRC], { type: "application/javascript" }));
+
 type Avatar = { name: string; role?: string; image?: string };
 
 export function useSarvamController() {
@@ -48,8 +120,8 @@ export function useSarvamController() {
     const micCtxRef = useRef<AudioContext | null>(null);
     const playCtxRef = useRef<AudioContext | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const nextPlayRef = useRef(0);
-    const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
+    const playerNodeRef = useRef<AudioWorkletNode | null>(null);
+    const micNodeRef = useRef<AudioWorkletNode | null>(null);
     const playDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
     const audioElRef = useRef<HTMLAudioElement | null>(null);
     const micMutedRef = useRef(false);
@@ -152,40 +224,13 @@ export function useSarvamController() {
 
     const playAudioChunk = (buf: ArrayBuffer) => {
         const ctx = playCtxRef.current;
-        if (!ctx || !playDestRef.current) return;
-        if (ctx.state === "suspended") ctx.resume().catch(() => {});
-        const int16 = new Int16Array(buf);
-        const f32 = new Float32Array(int16.length);
-        for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
-        const buffer = ctx.createBuffer(1, f32.length, AGENT_SAMPLE_RATE);
-        buffer.getChannelData(0).set(f32);
-        const src = ctx.createBufferSource();
-        src.buffer = buffer;
-        src.connect(playDestRef.current);
-        // Jitter buffer: when starting fresh (nothing queued ahead), delay the
-        // first chunk slightly so the stream stays ahead of the clock — without
-        // this, chunks play with tiny gaps and the voice sounds robotic until
-        // the network gets ahead.
-        const fresh = nextPlayRef.current <= ctx.currentTime;
-        const startAt = Math.max(ctx.currentTime + (fresh ? 0.12 : 0), nextPlayRef.current);
-        src.start(startAt);
-        nextPlayRef.current = startAt + buffer.duration;
-        activeSourcesRef.current.push(src);
-        src.onended = () => {
-            const a = activeSourcesRef.current;
-            const i = a.indexOf(src);
-            if (i >= 0) a.splice(i, 1);
-        };
+        if (ctx?.state === "suspended") ctx.resume().catch(() => {});
+        playerNodeRef.current?.port.postMessage(buf, [buf]);
     };
 
-    // Barge-in / stop: kill everything already scheduled, otherwise new speech
-    // overlaps the old tail and sounds like reverb.
+    // Barge-in / stop: flush the worklet's queue.
     const stopPlayback = () => {
-        for (const s of activeSourcesRef.current) {
-            try { s.stop(); } catch { /* already ended */ }
-        }
-        activeSourcesRef.current = [];
-        nextPlayRef.current = 0;
+        playerNodeRef.current?.port.postMessage("clear");
     };
 
     const cleanup = () => {
@@ -196,6 +241,7 @@ export function useSarvamController() {
         playCtxRef.current?.close().catch(() => {}); playCtxRef.current = null;
         audioElRef.current?.pause(); audioElRef.current = null;
         playDestRef.current = null;
+        playerNodeRef.current = null; micNodeRef.current = null;
         startingRef.current = false;
         setIsConnected(false); setIsSpeaking(false); setIsConnecting(false);
         setActiveAvatar(null);
@@ -237,10 +283,18 @@ export function useSarvamController() {
             }
             setActiveAvatar(mappedName);
         } else if (msg.function === "endCall") {
-            // Let whatever is still queued (the goodbye) finish before tearing down.
-            const ctx = playCtxRef.current;
-            const remaining = ctx ? Math.max(0, nextPlayRef.current - ctx.currentTime) : 0;
-            setTimeout(cleanup, Math.ceil(remaining * 1000) + 200);
+            // Let whatever is still queued (the goodbye) finish before tearing down:
+            // the player worklet posts "drained" when its buffer empties.
+            const node = playerNodeRef.current;
+            if (node) {
+                let done = false;
+                const finish = () => { if (!done) { done = true; cleanup(); } };
+                node.port.addEventListener("message", (e) => { if (e.data === "drained") setTimeout(finish, 300); });
+                node.port.start();
+                setTimeout(finish, 10000);   // failsafe
+            } else {
+                cleanup();
+            }
         } else if (msg.function === "appointmentBooked") {
             console.log("[Tool] Appointment booked:", msg.args);
         } else if (msg.function === "requestLogin") {
@@ -272,12 +326,16 @@ export function useSarvamController() {
             const playCtx = new AudioContext({ sampleRate: AGENT_SAMPLE_RATE });
             playCtxRef.current = playCtx;
             await playCtx.resume().catch(() => {});
-            nextPlayRef.current = 0;
+            const url = workletUrl();
+            await playCtx.audioWorklet.addModule(url);
+            const playerNode = new AudioWorkletNode(playCtx, "pcm-player");
+            playerNodeRef.current = playerNode;
 
             // Route agent audio via an <audio> element so the browser's echo
             // canceller subtracts it from the mic.
             const playDest = playCtx.createMediaStreamDestination();
             playDestRef.current = playDest;
+            playerNode.connect(playDest);
             const audioEl = new Audio();
             audioEl.srcObject = playDest.stream;
             audioEl.play().catch((e) => console.warn("audio playback blocked:", e));
@@ -288,12 +346,12 @@ export function useSarvamController() {
             });
             streamRef.current = stream;
 
-            // Mic context at the browser's native rate (a forced 16k context
-            // breaks MediaStreamSource in some browsers); downsample ourselves.
+            // Mic context at the browser's native rate; the worklet downsamples.
             const micCtx = new AudioContext();
             micCtxRef.current = micCtx;
             await micCtx.resume().catch(() => {});
-            const micRate = micCtx.sampleRate;
+            await micCtx.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url);
 
             const ws = new WebSocket(WS_URL);
             ws.binaryType = "arraybuffer";
@@ -301,27 +359,14 @@ export function useSarvamController() {
 
             ws.onopen = () => {
                 const source = micCtx.createMediaStreamSource(stream);
-                const proc = micCtx.createScriptProcessor(4096, 1, 1);
-                proc.onaudioprocess = (e) => {
+                const micNode = new AudioWorkletNode(micCtx, "mic-capture");
+                micNodeRef.current = micNode;
+                micNode.port.onmessage = (e) => {
                     if (ws.readyState !== WebSocket.OPEN || micMutedRef.current) return;
-                    const input = e.inputBuffer.getChannelData(0);
-                    // Downsample to 16 kHz by averaging each window (acts as a
-                    // crude anti-alias filter — plain decimation garbles STT).
-                    const ratio = micRate / MIC_SAMPLE_RATE;
-                    const outLen = Math.floor(input.length / ratio);
-                    const int16 = new Int16Array(outLen);
-                    for (let i = 0; i < outLen; i++) {
-                        const from = Math.floor(i * ratio);
-                        const to = Math.min(Math.floor((i + 1) * ratio), input.length);
-                        let sum = 0;
-                        for (let j = from; j < to; j++) sum += input[j];
-                        const s = Math.max(-1, Math.min(1, sum / Math.max(1, to - from)));
-                        int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-                    }
-                    ws.send(int16.buffer);
+                    ws.send(e.data);
                 };
-                source.connect(proc);
-                proc.connect(micCtx.destination);
+                source.connect(micNode);
+                micNode.connect(micCtx.destination);   // keeps the node running (outputs silence)
 
                 setIsConnected(true);
                 setIsConnecting(false);
