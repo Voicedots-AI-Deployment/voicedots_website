@@ -237,7 +237,10 @@ export function useSarvamController() {
             }
             setActiveAvatar(mappedName);
         } else if (msg.function === "endCall") {
-            cleanup();
+            // Let whatever is still queued (the goodbye) finish before tearing down.
+            const ctx = playCtxRef.current;
+            const remaining = ctx ? Math.max(0, nextPlayRef.current - ctx.currentTime) : 0;
+            setTimeout(cleanup, Math.ceil(remaining * 1000) + 200);
         } else if (msg.function === "appointmentBooked") {
             console.log("[Tool] Appointment booked:", msg.args);
         } else if (msg.function === "requestLogin") {
