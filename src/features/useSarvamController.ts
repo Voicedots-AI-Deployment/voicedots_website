@@ -167,7 +167,7 @@ export function useSarvamController() {
         // this, chunks play with tiny gaps and the voice sounds robotic until
         // the network gets ahead.
         const fresh = nextPlayRef.current <= ctx.currentTime;
-        const startAt = Math.max(ctx.currentTime + (fresh ? 0.25 : 0), nextPlayRef.current);
+        const startAt = Math.max(ctx.currentTime + (fresh ? 0.12 : 0), nextPlayRef.current);
         src.start(startAt);
         nextPlayRef.current = startAt + buffer.duration;
         activeSourcesRef.current.push(src);
