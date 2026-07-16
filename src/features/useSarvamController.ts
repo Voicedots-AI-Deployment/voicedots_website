@@ -152,6 +152,7 @@ export function useSarvamController() {
     const playAudioChunk = (buf: ArrayBuffer) => {
         const ctx = playCtxRef.current;
         if (!ctx || !playDestRef.current) return;
+        if (ctx.state === "suspended") ctx.resume().catch(() => {});
         const int16 = new Int16Array(buf);
         const f32 = new Float32Array(int16.length);
         for (let i = 0; i < int16.length; i++) f32[i] = int16[i] / 32768;
@@ -239,39 +240,51 @@ export function useSarvamController() {
         setError(null);
 
         try {
+            // Audio contexts MUST be created (and resumed) inside the click
+            // gesture — creating them later in ws.onopen leaves them suspended
+            // under the browser autoplay policy and the agent plays silently.
+            const playCtx = new AudioContext({ sampleRate: AGENT_SAMPLE_RATE });
+            playCtxRef.current = playCtx;
+            await playCtx.resume().catch(() => {});
+            nextPlayRef.current = 0;
+
+            // Route agent audio via an <audio> element so the browser's echo
+            // canceller subtracts it from the mic.
+            const playDest = playCtx.createMediaStreamDestination();
+            playDestRef.current = playDest;
+            const audioEl = new Audio();
+            audioEl.srcObject = playDest.stream;
+            audioEl.play().catch((e) => console.warn("audio playback blocked:", e));
+            audioElRef.current = audioEl;
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true },
             });
             streamRef.current = stream;
+
+            // Mic context at the browser's native rate (a forced 16k context
+            // breaks MediaStreamSource in some browsers); downsample ourselves.
+            const micCtx = new AudioContext();
+            micCtxRef.current = micCtx;
+            await micCtx.resume().catch(() => {});
+            const micRate = micCtx.sampleRate;
 
             const ws = new WebSocket(WS_URL);
             ws.binaryType = "arraybuffer";
             wsRef.current = ws;
 
             ws.onopen = () => {
-                const micCtx = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
-                micCtxRef.current = micCtx;
-                const playCtx = new AudioContext({ sampleRate: AGENT_SAMPLE_RATE });
-                playCtxRef.current = playCtx;
-                nextPlayRef.current = 0;
-
-                // Route agent audio via an <audio> element so the browser's echo
-                // canceller subtracts it from the mic.
-                const playDest = playCtx.createMediaStreamDestination();
-                playDestRef.current = playDest;
-                const audioEl = new Audio();
-                audioEl.srcObject = playDest.stream;
-                audioEl.play().catch(() => {});
-                audioElRef.current = audioEl;
-
                 const source = micCtx.createMediaStreamSource(stream);
                 const proc = micCtx.createScriptProcessor(4096, 1, 1);
                 proc.onaudioprocess = (e) => {
                     if (ws.readyState !== WebSocket.OPEN || micMutedRef.current) return;
                     const input = e.inputBuffer.getChannelData(0);
-                    const int16 = new Int16Array(input.length);
-                    for (let i = 0; i < input.length; i++) {
-                        const s = Math.max(-1, Math.min(1, input[i]));
+                    // naive decimation to 16 kHz
+                    const ratio = micRate / MIC_SAMPLE_RATE;
+                    const outLen = Math.floor(input.length / ratio);
+                    const int16 = new Int16Array(outLen);
+                    for (let i = 0; i < outLen; i++) {
+                        const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)]));
                         int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
                     }
                     ws.send(int16.buffer);
