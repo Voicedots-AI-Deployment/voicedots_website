@@ -6,6 +6,7 @@ import { DEMO_AVATARS } from "@/config/demoConfig";
 import AnimationController, { AvatarHandle } from "@/features/AnimationController";
 import { useConversationController } from "@/features/conversationController";
 import { useLiveKitController } from "@/features/useLiveKitController";
+import { useSarvamController } from "@/features/useSarvamController";
 import { useRef, useEffect, useState } from "react";
 import { LoginModal } from "@/components/modals/LoginModal";
 import DataTableModal from "@/components/modals/DataTableModal";
@@ -26,6 +27,7 @@ export default function AIDemoWidget() {
 
   const elevenLabsController = useConversationController();
   const liveKitController = useLiveKitController();
+  const sarvamController = useSarvamController();
 
   // Hide widget on the integrate page (it has its own preview widget)
   // Moved after hook calls to follow the Rules of Hooks
@@ -35,8 +37,10 @@ export default function AIDemoWidget() {
 
   // ElevenLabs is no longer used — every bot that has a LiveKit agent is routed
   // through the LiveKit controller.
+  // Our own demo bot runs on the low-latency Sarvam pipeline; client bots stay
+  // on LiveKit so they're untouched by that migration.
+  const sarvamIndustries = ["Voicedots"];
   const livekitIndustries = [
-    "Voicedots",
     "Balaji Medical College",
     "S.A College of Arts & Science",
     "Chitkara University",
@@ -45,9 +49,14 @@ export default function AIDemoWidget() {
     "Dhanalakshmi College of Engineering & Technology",
     "Sapthagiri NPS University",
   ];
+  const isSarvamActive = sarvamIndustries.includes(industry || "");
   const isLiveKitActive = livekitIndustries.includes(industry || "");
 
-  const conversationState = isLiveKitActive ? liveKitController : elevenLabsController;
+  const conversationState = isSarvamActive
+    ? sarvamController
+    : isLiveKitActive
+      ? liveKitController
+      : elevenLabsController;
 
   const {
     start,
