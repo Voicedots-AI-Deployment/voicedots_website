@@ -162,7 +162,12 @@ export function useSarvamController() {
         const src = ctx.createBufferSource();
         src.buffer = buffer;
         src.connect(playDestRef.current);
-        const startAt = Math.max(ctx.currentTime, nextPlayRef.current);
+        // Jitter buffer: when starting fresh (nothing queued ahead), delay the
+        // first chunk slightly so the stream stays ahead of the clock — without
+        // this, chunks play with tiny gaps and the voice sounds robotic until
+        // the network gets ahead.
+        const fresh = nextPlayRef.current <= ctx.currentTime;
+        const startAt = Math.max(ctx.currentTime + (fresh ? 0.25 : 0), nextPlayRef.current);
         src.start(startAt);
         nextPlayRef.current = startAt + buffer.duration;
         activeSourcesRef.current.push(src);
@@ -297,12 +302,17 @@ export function useSarvamController() {
                 proc.onaudioprocess = (e) => {
                     if (ws.readyState !== WebSocket.OPEN || micMutedRef.current) return;
                     const input = e.inputBuffer.getChannelData(0);
-                    // naive decimation to 16 kHz
+                    // Downsample to 16 kHz by averaging each window (acts as a
+                    // crude anti-alias filter — plain decimation garbles STT).
                     const ratio = micRate / MIC_SAMPLE_RATE;
                     const outLen = Math.floor(input.length / ratio);
                     const int16 = new Int16Array(outLen);
                     for (let i = 0; i < outLen; i++) {
-                        const s = Math.max(-1, Math.min(1, input[Math.floor(i * ratio)]));
+                        const from = Math.floor(i * ratio);
+                        const to = Math.min(Math.floor((i + 1) * ratio), input.length);
+                        let sum = 0;
+                        for (let j = from; j < to; j++) sum += input[j];
+                        const s = Math.max(-1, Math.min(1, sum / Math.max(1, to - from)));
                         int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
                     }
                     ws.send(int16.buffer);
