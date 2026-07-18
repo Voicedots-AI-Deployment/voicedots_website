@@ -25,6 +25,11 @@ class PcmPlayer extends AudioWorkletProcessor {
   constructor() {
     super();
     this.queue = []; this.offset = 0; this.buffered = 0; this.primed = false;
+    // First utterance of the call primes with a larger buffer (~300ms): at call
+    // start the TTS/network path is cold and a 120ms buffer underruns repeatedly,
+    // which sounds like stutter for the first few seconds. Later turns keep the
+    // small buffer for latency.
+    this.firstPrime = true;
     this.port.onmessage = (e) => {
       if (e.data === "clear") { this.queue = []; this.offset = 0; this.buffered = 0; this.primed = false; return; }
       const int16 = new Int16Array(e.data);
@@ -36,7 +41,8 @@ class PcmPlayer extends AudioWorkletProcessor {
   process(inputs, outputs) {
     const out = outputs[0][0];
     if (!this.primed) {
-      if (this.buffered >= 2880) this.primed = true;    // ~120ms @ 24k
+      const need = this.firstPrime ? 7200 : 2880;       // ~300ms first, ~120ms after
+      if (this.buffered >= need) { this.primed = true; this.firstPrime = false; }
       else { out.fill(0); return true; }
     }
     let i = 0;
