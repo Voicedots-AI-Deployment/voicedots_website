@@ -317,7 +317,7 @@ export function useSarvamController() {
         }
     };
 
-    const start = useCallback(async (_agentId: string, avatars: Avatar[]) => {
+    const start = useCallback(async (agentId: string, avatars: Avatar[]) => {
         if (startingRef.current) return;
         if (isConnected || isConnecting) return;
         startingRef.current = true;
@@ -359,7 +359,10 @@ export function useSarvamController() {
             await micCtx.audioWorklet.addModule(url);
             URL.revokeObjectURL(url);
 
-            const ws = new WebSocket(WS_URL);
+            // Pass the agent so the multi-tenant backend serves THIS client's
+            // bot (personas/KB/greeting). No agent = the default website bot.
+            const wsUrl = agentId ? `${WS_URL}${WS_URL.includes("?") ? "&" : "?"}agent=${encodeURIComponent(agentId)}` : WS_URL;
+            const ws = new WebSocket(wsUrl);
             ws.binaryType = "arraybuffer";
             wsRef.current = ws;
 

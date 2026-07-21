@@ -39,7 +39,7 @@ export default function AIDemoWidget() {
   // through the LiveKit controller.
   // Our own demo bot runs on the low-latency Sarvam pipeline; client bots stay
   // on LiveKit so they're untouched by that migration.
-  const sarvamIndustries = ["Voicedots"];
+  const sarvamIndustries = ["Voicedots", "Sapthagiri NPS University"];
   const livekitIndustries = [
     "Balaji Medical College",
     "S.A College of Arts & Science",
@@ -47,7 +47,6 @@ export default function AIDemoWidget() {
     "MGR University",
     "Sri Lalithambigai Medical College & Hospital",
     "Dhanalakshmi College of Engineering & Technology",
-    "Sapthagiri NPS University",
   ];
   const isSarvamActive = sarvamIndustries.includes(industry || "");
   const isLiveKitActive = livekitIndustries.includes(industry || "");
