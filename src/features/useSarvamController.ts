@@ -13,6 +13,10 @@ import { useNavigate } from "react-router-dom";
  */
 
 const WS_URL = import.meta.env.VITE_SARVAM_WS_URL || "wss://voice.voicedots.io/ws";
+// Website bot is migrated to the Gemini pipeline; other agents on this controller
+// (e.g. Sapthagiri) stay on Sarvam until their own cutover.
+const GEMINI_WS = import.meta.env.VITE_GEMINI_WS_URL || "wss://voice.voicedots.io/gemini/ws";
+const GEMINI_AGENTS = new Set(["", "voicedots_agent_6m9osxmfvp3u42yjnsgd8dgo5aconsv4"]);
 const MIC_SAMPLE_RATE = 16000;
 const AGENT_SAMPLE_RATE = 24000;
 
@@ -361,7 +365,9 @@ export function useSarvamController() {
 
             // Pass the agent so the multi-tenant backend serves THIS client's
             // bot (personas/KB/greeting). No agent = the default website bot.
-            const wsUrl = agentId ? `${WS_URL}${WS_URL.includes("?") ? "&" : "?"}agent=${encodeURIComponent(agentId)}` : WS_URL;
+            // Website agent -> Gemini pipeline; others -> Sarvam (until migrated).
+            const base = GEMINI_AGENTS.has(agentId || "") ? GEMINI_WS : WS_URL;
+            const wsUrl = agentId ? `${base}${base.includes("?") ? "&" : "?"}agent=${encodeURIComponent(agentId)}` : base;
             const ws = new WebSocket(wsUrl);
             ws.binaryType = "arraybuffer";
             wsRef.current = ws;
