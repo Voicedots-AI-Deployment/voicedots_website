@@ -174,10 +174,14 @@ export function useSarvamController() {
             const rows = Array.isArray(result) ? result : (Array.isArray(result?.data) ? result.data : []);
             const emptyMessage = rows.length === 0
                 ? `No records found for "${rollNo.trim()}".` + (isMarks
-                    ? " Marks lookups need the student's Register Number (e.g. SP22CSU177), which is different from the fee roll number."
-                    : " Please check the roll number and try again.")
+                    ? " Exam results need the student's Register Number (e.g. SP23EEU194), which is different from the fee roll number."
+                    : " Fee lookups need the student's college Roll Number (e.g. 24EGEEUS0277), which is different from the exam register number.")
                 : "";
             setTableState((prev) => ({ ...prev, isLoading: false, data: rows, emptyMessage }));
+            // Tell the bot the outcome NOW (table just appeared) so it acknowledges
+            // promptly instead of only when the user closes the panel.
+            sendJSON({ type: "FEE_RESULT", status: rows.length ? "shown" : "empty",
+                       intent: lookupIntentRef.current, rollNo: rollNo.trim() });
         } catch (err) {
             console.error("Error fetching fee balance:", err);
             setTableState((prev) => ({ ...prev, isLoading: false }));
@@ -203,13 +207,9 @@ export function useSarvamController() {
     };
 
     const closeTable = () => {
-        const _title = String(tableState.title || "");
-        const wasFee = tableState.isOpen && (_title.includes("Fee Balance") || _title.includes("Exam Results"));
+        // The bot was already told the outcome ("shown"/"empty") when the table
+        // appeared (see handleRollNumberSubmit), so closing just dismisses the panel.
         setTableState((prev) => ({ ...prev, isOpen: false }));
-        if (wasFee) {
-            const status = tableState.data.length > 0 ? "shown" : "empty";
-            sendJSON({ type: "FEE_RESULT", status, intent: lookupIntentRef.current });
-        }
     };
 
     const handleLoginSuccess = async () => {
