@@ -35,16 +35,17 @@ function ScrollHandler() {
   return null;
 }
 
-/** Conditionally renders the global Navigation & Footer. */
 function LayoutShell({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const isClientDemo = CLIENT_DEMO_ROUTES.includes(pathname);
+  const showNav = !isClientDemo;
+  const showFooter = !isClientDemo;
 
   return (
     <div className="relative min-h-screen flex flex-col text-foreground">
-      {!isClientDemo && <Navigation />}
+      {showNav && <Navigation />}
       <main className="flex-grow">{children}</main>
-      {!isClientDemo && <Footer />}
+      {showFooter && <Footer />}
     </div>
   );
 }
