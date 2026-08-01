@@ -16,6 +16,7 @@ import { TermsAndConditionsPage } from "./pages/TermsAndConditions";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicy";
 import { DmkPage } from "@/pages/DmkPage";
 import SapthagiriPage from "@/pages/SapthagiriPage";
+import KctPage from "@/pages/KctPage";
 import { SecureDataPage } from "@/pages/SecureDataPage";
 import EcomPage from "@/pages/EcomPage";
 import AIDemoWidget from "@/components/widgets/AIDemoWidget";
@@ -23,12 +24,29 @@ import { BlogPostPage } from "@/pages/BlogPostPage";
 import { IntegratePage } from "@/pages/IntegratePage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
+/** Routes where the client provides their own chrome (nav + footer). */
+const CLIENT_DEMO_ROUTES = ["/dmk", "/sapthagiri", "/kct", "/ecom"];
+
 function ScrollHandler() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname]);
   return null;
+}
+
+/** Conditionally renders the global Navigation & Footer. */
+function LayoutShell({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const isClientDemo = CLIENT_DEMO_ROUTES.includes(pathname);
+
+  return (
+    <div className="relative min-h-screen flex flex-col text-foreground">
+      {!isClientDemo && <Navigation />}
+      <main className="flex-grow">{children}</main>
+      {!isClientDemo && <Footer />}
+    </div>
+  );
 }
 
 export function App() {
@@ -81,31 +99,26 @@ export function App() {
       {/* Background – exactly one background active at a time */}
       {isDark && <ParticleBackground />}
 
-      {/* Main content wrapper */}
-      <div className="relative min-h-screen flex flex-col text-foreground">
-        <Navigation />
-
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/try-now" element={<TryNowPage />} />
-            <Route path="/try-on-website" element={<TryOnWebsitePage />} />
-            <Route path="/plans" element={<PlansPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/terms" element={<TermsAndConditionsPage />} />
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-            <Route path="/dmk" element={<DmkPage />} />
-            <Route path="/sapthagiri" element={<SapthagiriPage />} />
-            <Route path="/blogs" element={<BlogsSection />} />
-            <Route path="/blogs/:slug" element={<BlogPostPage />} />
-            <Route path="/secure-data" element={<SecureDataPage />} />
-            <Route path="/ecom" element={<EcomPage />} />
-            <Route path="/integrate" element={<IntegratePage />} />
-          </Routes>
-        </main>
-
-        <Footer />
-      </div>
+      {/* Main content wrapper — global nav/footer hidden on client demo routes */}
+      <LayoutShell>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/try-now" element={<TryNowPage />} />
+          <Route path="/try-on-website" element={<TryOnWebsitePage />} />
+          <Route path="/plans" element={<PlansPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/terms" element={<TermsAndConditionsPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+          <Route path="/dmk" element={<DmkPage />} />
+          <Route path="/sapthagiri" element={<SapthagiriPage />} />
+          <Route path="/kct" element={<KctPage />} />
+          <Route path="/blogs" element={<BlogsSection />} />
+          <Route path="/blogs/:slug" element={<BlogPostPage />} />
+          <Route path="/secure-data" element={<SecureDataPage />} />
+          <Route path="/ecom" element={<EcomPage />} />
+          <Route path="/integrate" element={<IntegratePage />} />
+        </Routes>
+      </LayoutShell>
 
       {/* ✅ ADD THIS — GLOBAL DEMO WIDGET WRAPPED IN ERROR BOUNDARY */}
       <ErrorBoundary>
