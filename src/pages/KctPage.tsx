@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useDemoWidget } from "@/config/demoWidgetState";
+import { useClientDemoWidget } from "@/hooks/useClientDemoWidget";
 import { motion } from "framer-motion";
 import {
   GraduationCap, BookOpen, Users, Map, Clock, Globe2, ShieldCheck, Zap,
@@ -26,12 +25,7 @@ const FEATURES = [
 
 
 export default function KctPage() {
-  const { openWidget } = useDemoWidget();
-
-  useEffect(() => {
-    openWidget("Kumaraguru College of Technology");
-    window.scrollTo(0, 0);
-  }, [openWidget]);
+  const openClientWidget = useClientDemoWidget("Kumaraguru College of Technology");
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-200 font-sans antialiased overflow-x-hidden transition-colors duration-300">
@@ -55,6 +49,7 @@ export default function KctPage() {
 
               <div className="flex flex-wrap gap-4">
                 <button
+                  onClick={openClientWidget}
                   className="group flex items-center gap-2 font-semibold px-7 py-3.5 rounded-xl transition-all shadow-lg hover:shadow-xl hover:scale-[1.02] bg-slate-900 text-white dark:bg-white dark:text-slate-900"
                 >
                   <Mic size={18} /> Talk to Kumaraguru AI
@@ -196,6 +191,7 @@ export default function KctPage() {
               Experience the future of campus communication. Talk to Kumaraguru AI right now — it's live on this page!
             </p>
             <button
+              onClick={openClientWidget}
               className="group inline-flex items-center gap-2 font-bold px-8 py-4 rounded-xl text-lg transition-all shadow-xl hover:shadow-2xl hover:scale-[1.03] bg-slate-900 text-white dark:bg-white dark:text-slate-900"
             >
               <Mic size={20} /> Start a Conversation

@@ -168,4 +168,14 @@ export const DEMO_AVATARS: Record<
     ],
     agent_id: "voicedots_agent_sn_7q4m8p2v6k1z9r5t0h3c8d4x",
   },
+  "Kumaraguru College of Technology": {
+    title: "Kumaraguru College of Technology AI Team",
+    avatars: [
+      { name: "About Us", role: "About KCT", image: "/animations/sales.lottie" },
+      { name: "Courses", role: "Courses", image: "/animations/support.lottie" },
+      { name: "Admissions", role: "Admissions", image: "/animations/receptionist.lottie" },
+      { name: "Placements", role: "Placements", image: "/animations/ceo.lottie" },
+    ],
+    agent_id: "voicedots_agent_kct_8m4q2v7x9p1r5t6w3z0c6d8h",
+  },
 }

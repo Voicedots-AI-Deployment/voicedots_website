@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useDemoWidget } from "@/config/demoWidgetState";
+import { useClientDemoWidget } from "@/hooks/useClientDemoWidget";
 import { motion } from "framer-motion";
 import {
   Cpu, FlaskConical, Briefcase, Stethoscope, Building2,
@@ -44,12 +43,7 @@ const FACILITIES = [
 ];
 
 export default function SapthagiriPage() {
-  const { openWidget } = useDemoWidget();
-
-  useEffect(() => {
-    openWidget("Sapthagiri NPS University");
-    window.scrollTo(0, 0);
-  }, []);
+  useClientDemoWidget("Sapthagiri NPS University");
 
   return (
     <div className="min-h-screen bg-white text-slate-800">
