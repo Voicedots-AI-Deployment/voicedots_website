@@ -97,11 +97,11 @@ export function Footer() {
             <div className="xl:w-1/4 flex flex-col items-start xl:items-end text-left xl:text-right gap-3 text-sm">
               <h3 className="font-semibold text-foreground tracking-wider uppercase mb-1">Locations</h3>
               <div className="text-muted-foreground leading-relaxed">
-                3/17, Grand Southern Trunk Rd,
+                Voicedots Towers,
                 <br />
-                Ramapuram, Alandur, Chennai,
+                No 3, GST Road,
                 <br />
-                Tamil Nadu 600016
+                Chennai, Tamil Nadu 600016
               </div>
               <div className="text-muted-foreground leading-relaxed mt-2">
                 <span className="block mb-1 font-medium text-foreground">Contact</span>
