@@ -41,6 +41,7 @@ export default function AIDemoWidget() {
   // on LiveKit so they're untouched by that migration.
   const sarvamIndustries = [
     "Voicedots",
+    "Dhanalakshmi College of Engineering & Technology",
     "Sapthagiri NPS University",
     "Kumaraguru College of Technology",
   ];
@@ -50,7 +51,6 @@ export default function AIDemoWidget() {
     "Chitkara University",
     "MGR University",
     "Sri Lalithambigai Medical College & Hospital",
-    "Dhanalakshmi College of Engineering & Technology",
   ];
   const isSarvamActive = sarvamIndustries.includes(industry || "");
   const isLiveKitActive = livekitIndustries.includes(industry || "");

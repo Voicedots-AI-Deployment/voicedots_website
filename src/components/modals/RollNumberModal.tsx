@@ -7,7 +7,7 @@ interface RollNumberModalProps {
   isLoading?: boolean;
   onClose: () => void;
   onSubmit: (rollNo: string) => void;
-  kind?: "fee" | "marks";
+  kind?: "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts";
 }
 
 export default function RollNumberModal({
@@ -18,7 +18,9 @@ export default function RollNumberModal({
   kind = "fee",
 }: RollNumberModalProps) {
   const isMarks = kind === "marks";
-  const actionLabel = isMarks ? "Get Marks" : "Get Fee Details";
+  const actionLabel = isMarks ? "Get Marks" : kind === "attendance" ? "Get Attendance"
+    : kind === "academic_review" ? "Get Academic Review"
+    : kind === "academic_contacts" ? "Get Academic Contacts" : "Get Fee Details";
   const fieldLabel = isMarks ? "Register Number" : "Roll Number";
   const placeholder = isMarks ? "e.g. SP23EEU194" : "e.g. 24EGEEUS0277";
   const [rollNo, setRollNo] = useState("");

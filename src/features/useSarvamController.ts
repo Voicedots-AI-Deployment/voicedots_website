@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { createDBClient } from "@/api/dbClient";
 import { useNavigate } from "react-router-dom";
 
 /**
@@ -16,7 +15,12 @@ const WS_URL = import.meta.env.VITE_SARVAM_WS_URL || "wss://voice.voicedots.io/w
 // Website bot is migrated to the Gemini pipeline; other agents on this controller
 // (e.g. Sapthagiri) stay on Sarvam until their own cutover.
 const GEMINI_WS = import.meta.env.VITE_GEMINI_WS_URL || "wss://voice.voicedots.io/gemini/ws";
-const GEMINI_AGENTS = new Set(["", "voicedots_agent_6m9osxmfvp3u42yjnsgd8dgo5aconsv4"]);
+const STUDENT_API = import.meta.env.VITE_STUDENT_DEMO_API_URL || "https://voice.voicedots.io/student-demo/v1";
+const GEMINI_AGENTS = new Set([
+    "",
+    "voicedots_agent_6m9osxmfvp3u42yjnsgd8dgo5aconsv4",
+    "voicedots_agent_dscet9m2q1h8z5t6w3v0pajcylrbsfde",
+]);
 const MIC_SAMPLE_RATE = 16000;
 const AGENT_SAMPLE_RATE = 24000;
 
@@ -121,8 +125,10 @@ export function useSarvamController() {
     const [ticketData] = useState<any>(null);
 
     const [rollModalOpen, setRollModalOpen] = useState(false);
-    const [rollModalKind, setRollModalKind] = useState<"fee" | "marks">("fee");
-    const lookupIntentRef = useRef<"fee" | "marks">("fee");
+    type StudentIntent = "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts";
+    const [rollModalKind, setRollModalKind] = useState<StudentIntent>("fee");
+    const lookupIntentRef = useRef<StudentIntent>("fee");
+    const attendancePeriodRef = useRef<"today" | "week" | "month" | "semester">("today");
     const avatarsRef = useRef<Avatar[]>([]);
 
     // transport refs
@@ -143,13 +149,6 @@ export function useSarvamController() {
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
     };
 
-    const studentClient = createDBClient(
-        "https://insproplus.com/erpdevapi/api/voicebot/get_query_result",
-        "STPDEV",
-        "myCVi6BSCVqHgAPdfxntPeY5IqS2YNZXRjZUk8pmL8prVQ6JmEospYLE8u8u5",
-        "VOICEBOT"
-    );
-
     const [tableState, setTableState] = useState({
         isOpen: false,
         isLoading: false,
@@ -158,24 +157,73 @@ export function useSarvamController() {
         emptyMessage: "" as string,
     });
 
-    // ── ERP: roll-number submit → fee/marks lookup → table ──
+    const rowsForStudentRecord = (payload: any, intent: StudentIntent) => {
+        const common = { Student: payload.student_name, Department: payload.department, "Academic Year": payload.academic_year };
+        if (intent === "marks") {
+            return (payload.subjects || []).map((s: any) => ({ ...common, Semester: payload.semester, Subject: s.subject, Marks: s.marks, Grade: s.grade,
+                Result: payload.overall_result, SGPA: payload.semester_gpa, CGPA: payload.overall_cgpa }));
+        }
+        if (intent === "attendance" && Array.isArray(payload.hours)) {
+            return payload.hours.map((h: any) => ({ ...common, Period: payload.period, Hour: h.hour, Time: h.time, Subject: h.subject, Status: h.status,
+                "Hours Conducted": payload.hours_conducted, "Hours Present": payload.hours_present, "Hours Absent": payload.hours_absent,
+                Eligibility: payload.eligibility_status }));
+        }
+        if (intent === "attendance" && Array.isArray(payload.days)) {
+            return payload.days.map((d: any) => ({ ...common, Period: payload.period, Day: d.day,
+                "Hours Conducted": d.hours_conducted, "Hours Present": d.hours_present, "Hours Absent": d.hours_absent,
+                "Overall %": payload.attendance_percentage, Eligibility: payload.eligibility_status }));
+        }
+        if (intent === "attendance") return [{ ...common, Period: payload.period,
+            "Days Conducted": payload.days_conducted, "Days Attended": payload.days_attended, "Days Absent": payload.days_absent,
+            "Day Attendance %": payload.day_attendance_percentage, "Hours Conducted": payload.hours_conducted,
+            "Hours Attended": payload.hours_attended, "Hours Absent": payload.hours_absent,
+            "Hour Attendance %": payload.hour_attendance_percentage, Eligibility: payload.eligibility_status }];
+        if (intent === "academic_review") {
+            const actions = (payload.agreed_actions || []).map((a: any) => `${a.action} (${a.owner}, ${a.status}, due ${a.due_date})`).join("; ");
+            return [{ ...common, "Review Date": payload.review_date, "Reviewed By": payload.reviewed_by,
+                "Reviewer Role": payload.reviewer_role, Summary: payload.parent_visible_summary,
+                "Recorded Factors": (payload.recorded_factors || []).join("; "), "Student Concerns": payload.student_concerns,
+                "Agreed Actions": actions, "Next Review": payload.next_review_date,
+                "Parent Meeting Recommended": payload.parent_meeting_recommended ? "Yes" : "No" }];
+        }
+        if (intent === "academic_contacts") {
+            const rows: Record<string, unknown>[] = [];
+            for (const [subject, contact] of Object.entries(payload.subject_faculty || {}) as [string, any][]) {
+                rows.push({ ...common, Responsibility: "Subject Faculty", Subject: subject, Name: contact.name,
+                    "Official Email": contact.official_email, Extension: contact.extension });
+            }
+            for (const [key, label] of [["class_advisor", "Class Advisor"], ["hod", "HOD"], ["academic_dean", "Academic Dean"]] as const) {
+                const contact = payload[key];
+                if (contact) rows.push({ ...common, Responsibility: label, Subject: "All subjects", Name: contact.name,
+                    "Official Email": contact.official_email, Extension: contact.extension });
+            }
+            return rows;
+        }
+        return [{ ...common, "Tuition Fee": payload.tuition_fee, "Hostel Fee": payload.hostel_fee,
+            "Transport Fee": payload.transport_fee, "Other Charges": payload.other_charges, "Total Fee": payload.total_fee,
+            "Amount Paid": payload.amount_paid, "Outstanding Balance": payload.outstanding_balance, "Next Due Date": payload.next_due_date }];
+    };
+
+    // Shared backend: identifier submit → fee/marks/attendance → table.
     const handleRollNumberSubmit = async (rollNo: string) => {
         setRollModalOpen(false);
         if (!rollNo?.trim()) return;
-        const isMarks = lookupIntentRef.current === "marks";
-        const query = isMarks ? "SP_GetStudentExamResults" : "GetStudentFeeBalance";
-        const paramName = isMarks ? "@RegNo" : "@RollNo";
-        const titleSuffix = isMarks ? "Exam Results" : "Student Fee Balance";
+        const intent = lookupIntentRef.current;
+        const titleSuffix = intent === "marks" ? "Exam Results" : intent === "attendance"
+            ? `${attendancePeriodRef.current[0].toUpperCase()}${attendancePeriodRef.current.slice(1)} Attendance`
+            : intent === "academic_review" ? "Academic Review"
+            : intent === "academic_contacts" ? "Academic Contacts" : "Student Fee Details";
         setTableState({ isOpen: true, isLoading: true, data: [], title: `${rollNo} ${titleSuffix}`, emptyMessage: "" });
         try {
-            const result: any = await studentClient.callDatabase({
-                query, isProcedure: true, parameters: { [paramName]: rollNo.trim() },
-            } as any);
-            const rows = Array.isArray(result) ? result : (Array.isArray(result?.data) ? result.data : []);
+            const period = intent === "attendance" ? `?period=${attendancePeriodRef.current}` : "";
+            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${period}`);
+            if (!response.ok) throw new Error(`Student lookup failed (${response.status})`);
+            const result: any = await response.json();
+            const rows = result.status === "found" ? rowsForStudentRecord(result, intent) : [];
             const emptyMessage = rows.length === 0
-                ? `No records found for "${rollNo.trim()}".` + (isMarks
+                ? `No records found for "${rollNo.trim()}".` + (intent === "marks"
                     ? " Exam results need the student's Register Number (e.g. SP23EEU194), which is different from the fee roll number."
-                    : " Fee lookups need the student's college Roll Number (e.g. 24EGEEUS0277), which is different from the exam register number.")
+                    : " Fee and attendance lookups need the student's college Roll Number (e.g. SPC25ENU018).")
                 : "";
             setTableState((prev) => ({ ...prev, isLoading: false, data: rows, emptyMessage }));
             // Tell the bot the outcome NOW (table just appeared) so it acknowledges
@@ -183,7 +231,7 @@ export function useSarvamController() {
             sendJSON({ type: "FEE_RESULT", status: rows.length ? "shown" : "empty",
                        intent: lookupIntentRef.current, rollNo: rollNo.trim() });
         } catch (err) {
-            console.error("Error fetching fee balance:", err);
+            console.error("Error fetching student record:", err);
             setTableState((prev) => ({ ...prev, isLoading: false }));
             sendJSON({ type: "FEE_RESULT", status: "error", intent: lookupIntentRef.current, rollNo: rollNo.trim() });
         }
@@ -308,8 +356,13 @@ export function useSarvamController() {
         } else if (msg.function === "appointmentBooked") {
             console.log("[Tool] Appointment booked:", msg.args);
         } else if (msg.function === "requestLogin") {
-            const intent = msg.args?.intent === "marks" ? "marks" : "fee";
+            const rawIntent = msg.args?.intent;
+            const intent: StudentIntent = ["marks", "attendance", "academic_review", "academic_contacts"].includes(rawIntent)
+                ? rawIntent : "fee";
             lookupIntentRef.current = intent;
+            if (["today", "week", "month", "semester"].includes(msg.args?.period)) {
+                attendancePeriodRef.current = msg.args.period;
+            }
             setRollModalKind(intent);
             const loginPromise = new Promise<string>((resolve) => { loginResolverRef.current = resolve; });
             setLoginOpen(true);
