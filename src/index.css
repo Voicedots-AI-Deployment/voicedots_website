@@ -1,0 +1,200 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ======================================================
+   VOICEDOTS – GLOBAL THEME (LIGHT + DARK)
+   ====================================================== */
+
+/* ---------------- WAVE BAR ANIMATION ---------------- */
+
+@keyframes waveDrift {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-40px);
+  }
+}
+
+.animate-wave-drift {
+  animation: waveDrift 60s linear infinite;
+}
+
+@keyframes wave {
+  0% {
+    transform: scaleY(0.4);
+  }
+
+  50% {
+    transform: scaleY(1);
+  }
+
+  100% {
+    transform: scaleY(0.4);
+  }
+}
+
+@layer base {
+  :root {
+    /* ================= LIGHT MODE (ENHANCED) ================= */
+
+    --background: 250 45% 98%;
+    --foreground: 250 25% 12%;
+
+    --muted: 250 25% 93%;
+    --muted-foreground: 250 12% 42%;
+
+    /* 🔥 Improved border contrast for light mode */
+    --border: 262 35% 82%;
+
+    --card: 0 0% 100%;
+
+    /*  Primary violet – richer & CTA-friendly */
+    --primary: 262 90% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Soft accent for pills / secondary buttons */
+    --accent: 262 85% 94%;
+    --accent-foreground: 262 85% 38%;
+
+    --ring: 262 90% 60%;
+    --radius: 0.75rem;
+
+    /* 🌊 LIGHT MODE – PAGE GRADIENT */
+    --page-gradient: linear-gradient(135deg,
+        #eef0ff 0%,
+        #f6f3ff 40%,
+        #fde9f1 100%);
+
+    /* 🌊 WAVE COLORS – slightly clearer */
+    --wave-1: rgba(124, 77, 255, 0.28);
+    --wave-2: rgba(155, 125, 255, 0.22);
+    --wave-3: rgba(255, 190, 215, 0.25);
+
+    --wave-opacity: 0.85;
+  }
+
+  .dark {
+    /* ================= DARK MODE ================= */
+
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 60%;
+
+    --border: 240 5% 18%;
+    --card: 240 10% 6%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --accent: 262 83% 20%;
+    --accent-foreground: 262 83% 80%;
+
+    --ring: 262 83% 58%;
+
+    --page-gradient: none;
+    --wave-opacity: 0;
+  }
+}
+
+/* ======================================================
+   BASE STYLES
+   ====================================================== */
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Outfit', sans-serif;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  html {
+    transition: background-color 0.4s ease, color 0.4s ease;
+  }
+}
+
+/* ======================================================
+   LIGHT MODE – WAVY BACKGROUND
+   ====================================================== */
+
+@layer utilities {
+  @keyframes waveFloatSlow {
+    0% {
+      transform: translate(0, 0);
+    }
+
+    50% {
+      transform: translate(-60px, -20px);
+    }
+
+    100% {
+      transform: translate(0, 0);
+    }
+  }
+
+  @keyframes waveFloatFast {
+    0% {
+      transform: translate(0, 0);
+    }
+
+    50% {
+      transform: translate(80px, 25px);
+    }
+
+    100% {
+      transform: translate(0, 0);
+    }
+  }
+
+  .wave-layer {
+    position: fixed;
+    inset: -20%;
+    pointer-events: none;
+    filter: blur(110px);
+    opacity: var(--wave-opacity);
+    z-index: -1;
+  }
+
+  .wave-1 {
+    background: radial-gradient(circle at 30% 40%, var(--wave-1), transparent 60%);
+    animation: waveFloatSlow 24s ease-in-out infinite;
+  }
+
+  .wave-2 {
+    background: radial-gradient(circle at 70% 50%, var(--wave-2), transparent 65%);
+    animation: waveFloatFast 18s ease-in-out infinite;
+  }
+
+  .wave-3 {
+    background: radial-gradient(circle at 50% 70%, var(--wave-3), transparent 60%);
+    animation: waveFloatSlow 32s ease-in-out infinite;
+  }
+
+  /* ======================================================
+     GLASSMORPHISM (LIGHT MODE POP FIX)
+     ====================================================== */
+
+  .glass {
+    @apply backdrop-blur-md border border-white/50 dark:border-white/10;
+    background: hsla(var(--background), 0.72);
+  }
+
+  .glass-card {
+    @apply backdrop-blur-md border border-white/60 dark:border-white/10 shadow-xl;
+    background: hsla(var(--background), 0.88);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
