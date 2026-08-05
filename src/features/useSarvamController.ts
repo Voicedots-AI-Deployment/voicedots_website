@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import type { VerifiedSession } from "@/components/modals/LoginModal";
 
 /**
  * Sarvam low-latency voice controller.
@@ -130,6 +131,10 @@ export function useSarvamController() {
     const lookupIntentRef = useRef<StudentIntent>("fee");
     const attendancePeriodRef = useRef<"today" | "week" | "month" | "semester">("today");
     const avatarsRef = useRef<Avatar[]>([]);
+    // Set once the visitor verifies their registered number. While it holds a
+    // student, lookups use that student's identifiers and the roll-number popup
+    // never opens — the same experience the telephone caller already gets.
+    const linkedStudentRef = useRef<VerifiedSession["students"][number] | null>(null);
 
     // transport refs
     const wsRef = useRef<WebSocket | null>(null);
@@ -204,10 +209,9 @@ export function useSarvamController() {
             "Amount Paid": payload.amount_paid, "Outstanding Balance": payload.outstanding_balance, "Next Due Date": payload.next_due_date }];
     };
 
-    // Shared backend: identifier submit → fee/marks/attendance → table.
-    const handleRollNumberSubmit = async (rollNo: string) => {
-        setRollModalOpen(false);
-        if (!rollNo?.trim()) return;
+    // Shared backend: identifier → fee/marks/attendance → table. Reached either
+    // from the typed roll-number popup or straight from a verified session.
+    const runStudentLookup = async (rollNo: string) => {
         const intent = lookupIntentRef.current;
         const titleSuffix = intent === "marks" ? "Exam Results" : intent === "attendance"
             ? `${attendancePeriodRef.current[0].toUpperCase()}${attendancePeriodRef.current.slice(1)} Attendance`
@@ -237,6 +241,20 @@ export function useSarvamController() {
         }
     };
 
+    const handleRollNumberSubmit = async (rollNo: string) => {
+        setRollModalOpen(false);
+        if (!rollNo?.trim()) return;
+        await runStudentLookup(rollNo);
+    };
+
+    // Marks are keyed by register number, everything else by roll number — the
+    // verified student carries both, so the visitor never has to know which.
+    const linkedIdentifier = (intent: StudentIntent) => {
+        const s = linkedStudentRef.current;
+        if (!s) return null;
+        return intent === "marks" ? s.registration_number : s.roll_number;
+    };
+
     const handleRollNumberCancel = async () => {
         setRollModalOpen(false);
         sendJSON({ type: "FEE_RESULT", status: "cancelled", intent: lookupIntentRef.current });
@@ -260,7 +278,14 @@ export function useSarvamController() {
         setTableState((prev) => ({ ...prev, isOpen: false }));
     };
 
-    const handleLoginSuccess = async () => {
+    const handleLoginSuccess = async (session?: VerifiedSession) => {
+        // A verified number identifies the guardian for the rest of the call, so
+        // hand the token to the agent: it greets them by name and stops asking
+        // for identifiers. Without a session the visitor chose the typed route.
+        if (session?.sessionToken && session.students?.length) {
+            linkedStudentRef.current = session.students.length === 1 ? session.students[0] : null;
+            sendJSON({ type: "STUDENT_SESSION", token: session.sessionToken });
+        }
         if (loginResolverRef.current) { loginResolverRef.current("success"); loginResolverRef.current = null; }
     };
     const handleLoginFailure = async () => {
@@ -364,13 +389,27 @@ export function useSarvamController() {
                 attendancePeriodRef.current = msg.args.period;
             }
             setRollModalKind(intent);
+
+            // Already verified earlier in this call: go straight to the record,
+            // exactly as the phone agent does for a recognised caller ID.
+            const known = linkedIdentifier(intent);
+            if (known) {
+                sendJSON({ type: "LOGIN_RESULT", status: "success", intent });
+                await runStudentLookup(known);
+                return;
+            }
+
             const loginPromise = new Promise<string>((resolve) => { loginResolverRef.current = resolve; });
             setLoginOpen(true);
             sendJSON({ type: "POPUP_STATE", open: true });
             const status = await loginPromise;
             setLoginOpen(false);
-            if (status === "success") setRollModalOpen(true);
             sendJSON({ type: "LOGIN_RESULT", status, intent });
+            if (status !== "success") return;
+            // The modal may have just verified a number; use it without a popup.
+            const verified = linkedIdentifier(intent);
+            if (verified) await runStudentLookup(verified);
+            else setRollModalOpen(true);
         }
     };
 
@@ -473,6 +512,9 @@ export function useSarvamController() {
     }, [isConnected, isConnecting]);
 
     const stop = async () => {
+        // The verified identity belongs to one call only; the next visitor on
+        // this browser must verify again.
+        linkedStudentRef.current = null;
         cleanup();
     };
 
