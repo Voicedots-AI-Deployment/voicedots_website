@@ -143,8 +143,6 @@ export function useSarvamController() {
     const streamRef = useRef<MediaStream | null>(null);
     const playerNodeRef = useRef<AudioWorkletNode | null>(null);
     const micNodeRef = useRef<AudioWorkletNode | null>(null);
-    const playDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-    const audioElRef = useRef<HTMLAudioElement | null>(null);
     const micMutedRef = useRef(false);
 
     const navigate = useNavigate();
@@ -320,10 +318,9 @@ export function useSarvamController() {
         stopPlayback();
         wsRef.current?.close(); wsRef.current = null;
         streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
-        micCtxRef.current?.close().catch(() => {}); micCtxRef.current = null;
+        // Mic and playback share one context now, so close it once.
+        micCtxRef.current = null;
         playCtxRef.current?.close().catch(() => {}); playCtxRef.current = null;
-        audioElRef.current?.pause(); audioElRef.current = null;
-        playDestRef.current = null;
         playerNodeRef.current = null; micNodeRef.current = null;
         startingRef.current = false;
         setIsConnected(false); setIsSpeaking(false); setIsConnecting(false);
@@ -433,26 +430,31 @@ export function useSarvamController() {
             const playerNode = new AudioWorkletNode(playCtx, "pcm-player");
             playerNodeRef.current = playerNode;
 
-            // Route agent audio via an <audio> element so the browser's echo
-            // canceller subtracts it from the mic.
-            const playDest = playCtx.createMediaStreamDestination();
-            playDestRef.current = playDest;
-            playerNode.connect(playDest);
-            const audioEl = new Audio();
-            audioEl.srcObject = playDest.stream;
-            audioEl.play().catch((e) => console.warn("audio playback blocked:", e));
-            audioElRef.current = audioEl;
+            // Play straight out of the audio graph. This used to go through a
+            // MediaStreamDestination into an <audio> element so the echo
+            // canceller would treat it as a stream — but that path runs the
+            // browser's live-stream playout engine, which speeds playback up
+            // whenever a backlog builds. Gemini streams faster than realtime, so
+            // a backlog always builds at the start of a call, and the engine
+            // drained it by playing the opening seconds fast (heard as a raised
+            // pitch that settles). A direct connection plays at exactly the
+            // context rate, always. Mic capture keeps echoCancellation on, which
+            // still references the device's render stream.
+            playerNode.connect(playCtx.destination);
 
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true },
             });
             streamRef.current = stream;
 
-            // Mic context at the browser's native rate; the worklet downsamples.
-            const micCtx = new AudioContext();
+            // Mic shares the playback context. Two contexts at different rates
+            // (24k playback, 48k device) meant the browser resampled one of them
+            // onto the shared output device, which coloured the agent's voice at
+            // the start of a call. One context, one rate, no resampling. The mic
+            // worklet derives its ratio from `sampleRate`, so 24k is fine, and
+            // createMediaStreamSource converts the 48k device stream for us.
+            const micCtx = playCtx;
             micCtxRef.current = micCtx;
-            await micCtx.resume().catch(() => {});
-            await micCtx.audioWorklet.addModule(url);
             URL.revokeObjectURL(url);
 
             // Pass the agent so the multi-tenant backend serves THIS client's
@@ -473,7 +475,13 @@ export function useSarvamController() {
                     ws.send(e.data);
                 };
                 source.connect(micNode);
-                micNode.connect(micCtx.destination);   // keeps the node running (outputs silence)
+                // The node has to be connected to something to keep running, but
+                // that destination is now the speakers — so route it through a
+                // silent gain rather than trusting the worklet never to emit.
+                const micSink = micCtx.createGain();
+                micSink.gain.value = 0;
+                micNode.connect(micSink);
+                micSink.connect(micCtx.destination);
 
                 setIsConnected(true);
                 setIsConnecting(false);
