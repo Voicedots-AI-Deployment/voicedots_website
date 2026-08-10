@@ -81,7 +81,7 @@ class MicCapture extends AudioWorkletProcessor {
     const inp = inputs[0] && inputs[0][0];
     if (!inp) return true;
     this.acc.push(new Float32Array(inp)); this.accLen += inp.length;
-    if (this.accLen >= 2048 * this.ratio) {
+    if (this.accLen >= 640 * this.ratio) {
       const all = new Float32Array(this.accLen);
       let o = 0; for (const a of this.acc) { all.set(a, o); o += a.length; }
       this.acc = []; this.accLen = 0;
