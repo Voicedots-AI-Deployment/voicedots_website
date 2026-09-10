@@ -20,7 +20,7 @@ export function PrivacyPolicyPage() {
           {/* Intro */}
           <section className="space-y-3">
             <p>
-              At <strong>VoiceDots</strong>, accessible from{" "}
+              At <strong>Voicedots Infotech</strong> ("VoiceDots"), accessible from{" "}
               <a
                 href="https://www.voicedots.io"
                 className="text-primary underline"
@@ -29,6 +29,9 @@ export function PrivacyPolicyPage() {
               </a>
               , the privacy and security of our visitors is one of our top
               priorities.
+            </p>
+            <p>
+              Voicedots Infotech is located at No. 3/17, Grand Southern Trunk Road, Alandur, Chennai, Tamil Nadu 600016.
             </p>
             <p>
               This Privacy Policy document outlines the types of information

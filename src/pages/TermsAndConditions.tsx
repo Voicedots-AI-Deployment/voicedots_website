@@ -20,7 +20,11 @@ export function TermsAndConditionsPage() {
           {/* Intro */}
           <section className="space-y-3">
             <p>
-              Welcome to <strong>VoiceDots</strong>!
+              Welcome to <strong>VoiceDots</strong>, operated by{" "}
+              <strong>Voicedots Infotech</strong>.
+            </p>
+            <p>
+              Voicedots Infotech is located at No. 3/17, Grand Southern Trunk Road, Alandur, Chennai, Tamil Nadu 600016.
             </p>
             <p>
               These terms and conditions outline the rules and regulations for
@@ -49,8 +53,8 @@ export function TermsAndConditionsPage() {
               “Client”, “You”, and “Your” refers to you, the person accessing
               this website and accepting the Company’s terms and conditions.
               “The Company”, “Ourselves”, “We”, “Our”, and “Us”, refers to
-              VoiceDots. “Party”, “Parties”, or “Us”, refers to both the Client
-              and ourselves.
+              Voicedots Infotech. “Party”, “Parties”, or “Us”, refers to both
+              the Client and ourselves.
             </p>
           </section>
 

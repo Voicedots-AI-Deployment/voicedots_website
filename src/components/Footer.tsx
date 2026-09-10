@@ -96,13 +96,9 @@ export function Footer() {
             {/* Right side: Locations & Contact */}
             <div className="xl:w-1/4 flex flex-col items-start xl:items-end text-left xl:text-right gap-3 text-sm">
               <h3 className="font-semibold text-foreground tracking-wider uppercase mb-1">Locations</h3>
-              <div className="text-muted-foreground leading-relaxed">
-                Voicedots Towers,
-                <br />
-                No 3, GST Road,
-                <br />
-                Chennai, Tamil Nadu 600016
-              </div>
+              <address className="text-muted-foreground leading-relaxed not-italic">
+                No. 3/17, Grand Southern Trunk Road, Alandur, Chennai, Tamil Nadu 600016
+              </address>
               <div className="text-muted-foreground leading-relaxed mt-2">
                 <span className="block mb-1 font-medium text-foreground">Contact</span>
                 <a href="mailto:info@voicedots.io" className="hover:text-primary transition-colors block">
@@ -148,7 +144,7 @@ export function Footer() {
         {/* BOTTOM SECTION: Legal links outside the card (matches reference) */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-muted-foreground/80 px-4 md:px-8">
           <div>
-            © 2026 VoiceDots.io. All rights reserved.
+            © 2026 Voicedots Infotech. All rights reserved.
           </div>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             <Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
