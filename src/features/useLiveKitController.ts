@@ -1,3 +1,5 @@
+import { rememberStudentLookup, getStudentLookup, clearStudentLookup } from "./studentLookupSession";
+import type { VerifiedSession } from "@/components/modals/LoginModal";
 import { useCallback, useRef, useState } from "react";
 import { Room, RoomEvent, Participant, VideoPresets, RemoteParticipant, RemoteTrackPublication, RemoteTrack } from "livekit-client";
 import { createDBClient } from "@/api/dbClient";
@@ -18,6 +20,7 @@ export function useLiveKitController() {
 
     const startingRef = useRef(false);
 
+    const lookupScopeRef = useRef("");
     const loginResolverRef = useRef<((status: string) => void) | null>(null);
 
     const [activeAvatar, setActiveAvatar] = useState<string | null>(null);
@@ -149,7 +152,9 @@ export function useLiveKitController() {
         }
     };
 
-    const handleLoginSuccess = async () => {
+    const handleLoginSuccess = async (session?: VerifiedSession) => {
+        if (!loginResolverRef.current) return;
+        rememberStudentLookup(lookupScopeRef.current, session);
         if (loginResolverRef.current) {
             loginResolverRef.current('success');
             loginResolverRef.current = null;
@@ -188,6 +193,7 @@ export function useLiveKitController() {
     const start = useCallback(async (agentId: string, avatars: Avatar[]) => {
         if (startingRef.current) return;
         if (isConnected || isConnecting) return;
+    lookupScopeRef.current = `livekit:${agentId}`;
 
         startingRef.current = true;
         avatarsRef.current = avatars;
@@ -213,6 +219,11 @@ export function useLiveKitController() {
             });
 
             // Handle Agent Speaking State (Rough approximation based on audio tracks/events)
+            newRoom.on(RoomEvent.Disconnected, () => {
+                clearStudentLookup(lookupScopeRef.current);
+                loginResolverRef.current?.("cancelled"); loginResolverRef.current = null;
+                setLoginOpen(false); setRollModalOpen(false);
+            });
             newRoom.on(RoomEvent.ActiveSpeakersChanged, (speakers: Participant[]) => {
                 // If any remote participant is speaking, we assume the agent is speaking
                 const remoteSpeaker = speakers.find((p) => p instanceof RemoteParticipant);
@@ -322,15 +333,17 @@ export function useLiveKitController() {
                         } else if (msg.function === "appointmentBooked") {
                             console.log("[Tool] Appointment booked:", msg.args);
                         } else if (msg.function === "requestLogin") {
+                            if (loginResolverRef.current) return;
                             // Agent requested authentication — remember what to look up
                             // (fee vs rank), show the login modal, then report the result.
                             const intent = msg.args?.intent === "marks" ? "marks" : "fee";
                             lookupIntentRef.current = intent;
                             setRollModalKind(intent);
-                            const loginPromise = new Promise<string>((resolve) => {
+                            const cached = getStudentLookup(lookupScopeRef.current);
+                            const loginPromise = cached ? Promise.resolve("success") : new Promise<string>((resolve) => {
                                 loginResolverRef.current = resolve;
                             });
-                            setLoginOpen(true);
+                            setLoginOpen(!cached);
                             // Tell the agent a blocking popup is on screen so the silence
                             // watchdog doesn't prompt/disconnect while the user types.
                             if (newRoom && newRoom.localParticipant) {
@@ -398,6 +411,9 @@ export function useLiveKitController() {
     }, [isConnected, isConnecting]);
 
     const stop = async () => {
+        clearStudentLookup(lookupScopeRef.current);
+        loginResolverRef.current?.("cancelled"); loginResolverRef.current = null;
+        setLoginOpen(false); setRollModalOpen(false);
         startingRef.current = false;
 
         if (room) {

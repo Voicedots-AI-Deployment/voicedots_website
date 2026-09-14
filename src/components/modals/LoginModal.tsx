@@ -6,6 +6,7 @@ const STUDENT_API = import.meta.env.VITE_STUDENT_DEMO_API_URL || "https://voice.
 
 export type VerifiedSession = {
   sessionToken: string;
+  expiresAt: number;
   students: { student_name: string; guardian_name: string; roll_number: string;
               registration_number: string }[];
 };
@@ -79,7 +80,8 @@ export function LoginModal({ isOpen, onClose, onSuccess, onFailure }: LoginModal
       });
       const data = await res.json();
       if (res.ok && data.status === "verified") {
-        onSuccess({ sessionToken: data.session_token, students: data.students });
+        onSuccess({ sessionToken: data.session_token, students: data.students,
+          expiresAt: Date.now() + Math.min(1800, Number(data.expires_in) || 1800) * 1000 });
         onClose();
         return;
       }

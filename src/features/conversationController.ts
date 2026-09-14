@@ -1,5 +1,7 @@
+import { rememberStudentLookup, getStudentLookup, clearStudentLookup } from "./studentLookupSession";
+import type { VerifiedSession } from "@/components/modals/LoginModal";
 import { useConversation } from "@elevenlabs/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createDBClient } from "@/api/dbClient";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +20,7 @@ export function useConversationController() {
   const startingRef = useRef(false); // 🔒 LOCK
   const stopRef = useRef(() => Promise.resolve());
 
+  const lookupScopeRef = useRef("");
   const loginResolverRef = useRef<((status: string) => void) | null>(null);
 
   const [activeAvatar, setActiveAvatar] = useState<string | null>(null);
@@ -28,6 +31,16 @@ export function useConversationController() {
 
   const isConnected = conversation.status === "connected";
   const isConnecting = conversation.status === "connecting";
+  const wasConnected = useRef(false);
+  useEffect(() => {
+    if (wasConnected.current && !isConnected && !isConnecting) {
+      clearStudentLookup(lookupScopeRef.current);
+      loginResolverRef.current?.("cancelled"); loginResolverRef.current = null;
+      setLoginOpen(false); setRollModalOpen(false);
+    }
+    if (isConnected) wasConnected.current = true;
+    else if (!isConnecting) wasConnected.current = false;
+  }, [isConnected, isConnecting]);
 
     // DATA COLLECTION STATE
   const [dataCollectionOpen, setDataCollectionOpen] = useState(false);
@@ -114,7 +127,9 @@ export function useConversationController() {
     "VOICEBOT"
   );
 
-  const handleLoginSuccess = async () => {
+  const handleLoginSuccess = async (session?: VerifiedSession) => {
+        if (!loginResolverRef.current) return;
+        rememberStudentLookup(lookupScopeRef.current, session);
       if (loginResolverRef.current) {
       loginResolverRef.current('success');
       loginResolverRef.current = null;
@@ -170,6 +185,7 @@ export function useConversationController() {
     // 🛑 HARD GUARDS
     if (startingRef.current) return;
     if (isConnected || isConnecting) return;
+    lookupScopeRef.current = `elevenlabs:${agentId}`;
     console.log("Connecting with ElevenLabs")
     console.log("Agent ID: ", agentId)
     startingRef.current = true;
@@ -203,6 +219,7 @@ export function useConversationController() {
             return `Navigated to ${id}`;
           },
           requestLogin: async () => {
+            if (getStudentLookup(lookupScopeRef.current)) return 'success';
             const loginPromise = new Promise<string>((resolve) => {
               loginResolverRef.current = resolve;
             });
@@ -468,6 +485,9 @@ export function useConversationController() {
   }, [conversation, isConnected, isConnecting]);
 
   const stop = async () => {
+        clearStudentLookup(lookupScopeRef.current);
+        loginResolverRef.current?.("cancelled"); loginResolverRef.current = null;
+        setLoginOpen(false); setRollModalOpen(false);
     startingRef.current = false;
 
     micRef.current?.getTracks().forEach(t => t.stop());
