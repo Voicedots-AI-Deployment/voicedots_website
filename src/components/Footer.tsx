@@ -55,6 +55,7 @@ export function Footer() {
               <div className="flex flex-col gap-3 text-sm">
                 <h3 className="font-semibold text-foreground tracking-wider uppercase mb-1">Navigation</h3>
                 <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">Home</Link>
+                <Link to="/interviews" className="text-muted-foreground hover:text-primary transition-colors">AI Interviews</Link>
                 <Link to="/try-now" className="text-muted-foreground hover:text-primary transition-colors">Try Now</Link>
                 <Link to="/try-on-website" className="text-muted-foreground hover:text-primary transition-colors">Try on Website</Link>
                 <Link to="/plans" className="text-muted-foreground hover:text-primary transition-colors">Pricing</Link>

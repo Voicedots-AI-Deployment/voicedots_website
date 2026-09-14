@@ -23,6 +23,7 @@ import AIDemoWidget from "@/components/widgets/AIDemoWidget";
 import { BlogPostPage } from "@/pages/BlogPostPage";
 import { IntegratePage } from "@/pages/IntegratePage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { InterviewsPage } from "@/pages/InterviewsPage";
 
 /** Routes where the client provides their own chrome (nav + footer). */
 const CLIENT_DEMO_ROUTES = ["/dmk", "/sapthagiri", "/kct", "/ecom"];
@@ -48,6 +49,12 @@ function LayoutShell({ children }: { children: React.ReactNode }) {
       {showFooter && <Footer />}
     </div>
   );
+}
+
+function GlobalDemoWidget() {
+  const { pathname } = useLocation();
+  if (pathname === '/interviews') return null;
+  return <ErrorBoundary><AIDemoWidget /></ErrorBoundary>;
 }
 
 export function App() {
@@ -118,13 +125,11 @@ export function App() {
           <Route path="/secure-data" element={<SecureDataPage />} />
           <Route path="/ecom" element={<EcomPage />} />
           <Route path="/integrate" element={<IntegratePage />} />
+          <Route path="/interviews" element={<InterviewsPage />} />
         </Routes>
       </LayoutShell>
 
-      {/* ✅ ADD THIS — GLOBAL DEMO WIDGET WRAPPED IN ERROR BOUNDARY */}
-      <ErrorBoundary>
-        <AIDemoWidget />
-      </ErrorBoundary>
+      <GlobalDemoWidget />
     </Router>
   );
 }
