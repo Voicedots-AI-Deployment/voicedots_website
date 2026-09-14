@@ -11,6 +11,11 @@
   ],
   "redirects": [
     {
+      "source": "/student/",
+      "destination": "https://students.voicedots.io/",
+      "permanent": true
+    },
+    {
       "source": "/student/:path*",
       "destination": "https://students.voicedots.io/:path*",
       "permanent": true
