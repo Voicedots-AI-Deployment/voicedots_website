@@ -4,6 +4,16 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/student/:path*",
+      "destination": "https://students.voicedots.io/:path*",
+      "permanent": true
+    }
   ]
 }
