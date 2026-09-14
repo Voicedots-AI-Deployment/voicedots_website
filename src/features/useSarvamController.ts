@@ -1,3 +1,4 @@
+import { rememberStudentLookup, getStudentLookup, clearStudentLookup } from "./studentLookupSession";
 import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { VerifiedSession } from "@/components/modals/LoginModal";
@@ -134,6 +135,8 @@ export function useSarvamController() {
     // Set once the visitor verifies their registered number. While it holds a
     // student, lookups use that student's identifiers and the roll-number popup
     // never opens — the same experience the telephone caller already gets.
+    const lookupScopeRef = useRef("");
+    const linkedSessionTokenRef = useRef("");
     const linkedStudentRef = useRef<VerifiedSession["students"][number] | null>(null);
 
     // transport refs
@@ -277,11 +280,14 @@ export function useSarvamController() {
     };
 
     const handleLoginSuccess = async (session?: VerifiedSession) => {
+        if (!loginResolverRef.current) return;
+        rememberStudentLookup(lookupScopeRef.current, session);
         // A verified number identifies the guardian for the rest of the call, so
         // hand the token to the agent: it greets them by name and stops asking
         // for identifiers. Without a session the visitor chose the typed route.
         if (session?.sessionToken && session.students?.length) {
             linkedStudentRef.current = session.students.length === 1 ? session.students[0] : null;
+            linkedSessionTokenRef.current = session.sessionToken;
             sendJSON({ type: "STUDENT_SESSION", token: session.sessionToken });
         }
         if (loginResolverRef.current) { loginResolverRef.current("success"); loginResolverRef.current = null; }
@@ -315,7 +321,14 @@ export function useSarvamController() {
     };
 
     const cleanup = () => {
+        clearStudentLookup(lookupScopeRef.current);
+        linkedStudentRef.current = null;
+        linkedSessionTokenRef.current = "";
+        loginResolverRef.current?.("cancelled"); loginResolverRef.current = null;
+        setLoginOpen(false); setRollModalOpen(false);
+        setTableState(prev => ({ ...prev, isOpen: false, data: [] }));
         stopPlayback();
+        if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.onerror = null; }
         wsRef.current?.close(); wsRef.current = null;
         streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null;
         // Mic and playback share one context now, so close it once.
@@ -378,6 +391,13 @@ export function useSarvamController() {
         } else if (msg.function === "appointmentBooked") {
             console.log("[Tool] Appointment booked:", msg.args);
         } else if (msg.function === "requestLogin") {
+            if (loginResolverRef.current) return;
+            const cached = getStudentLookup(lookupScopeRef.current);
+            if (cached?.verified && linkedSessionTokenRef.current !== cached.verified.sessionToken) {
+                linkedSessionTokenRef.current = cached.verified.sessionToken;
+                sendJSON({ type: "STUDENT_SESSION", token: cached.verified.sessionToken });
+            }
+            linkedStudentRef.current = cached?.verified?.students.length === 1 ? cached.verified.students[0] : null;
             const rawIntent = msg.args?.intent;
             const intent: StudentIntent = ["marks", "attendance", "academic_review", "academic_contacts"].includes(rawIntent)
                 ? rawIntent : "fee";
@@ -396,6 +416,12 @@ export function useSarvamController() {
                 return;
             }
 
+            if (cached) {
+                sendJSON({ type: "LOGIN_RESULT", status: "success", intent });
+                setRollModalOpen(true);
+                sendJSON({ type: "POPUP_STATE", open: true });
+                return;
+            }
             const loginPromise = new Promise<string>((resolve) => { loginResolverRef.current = resolve; });
             setLoginOpen(true);
             sendJSON({ type: "POPUP_STATE", open: true });
@@ -414,6 +440,7 @@ export function useSarvamController() {
         if (startingRef.current) return;
         if (isConnected || isConnecting) return;
         startingRef.current = true;
+        lookupScopeRef.current = `demo:${agentId || "voicedots"}`;
         avatarsRef.current = avatars;
         setIsConnecting(true);
         setError(null);
@@ -523,6 +550,7 @@ export function useSarvamController() {
         // The verified identity belongs to one call only; the next visitor on
         // this browser must verify again.
         linkedStudentRef.current = null;
+        linkedSessionTokenRef.current = "";
         cleanup();
     };
 
