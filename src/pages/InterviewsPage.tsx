@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 
 const studentPortalUrl =
   import.meta.env.VITE_STUDENT_DASHBOARD_URL ||
-  (import.meta.env.DEV ? "http://localhost:5175" : "/student/");
+  (import.meta.env.DEV ? "http://localhost:5175" : "https://students.voicedots.io");
 
 export function InterviewsPage() {
   return (
