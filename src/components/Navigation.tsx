@@ -19,6 +19,7 @@ export function Navigation() {
       ],
     },
     { name: 'Try on Website', href: '/try-on-website' },
+    { name: 'AI Interviews', href: '/interviews' },
     { name: 'Plans', href: '/plans' },
     { name: 'Contact', href: '/contact' },
   ];
@@ -49,7 +50,7 @@ export function Navigation() {
             </h1>
           </Link>
 
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-4 lg:gap-6">
             {navLinks.map((link) => (
               <div
                 key={link.name}
@@ -115,13 +116,13 @@ export function Navigation() {
 
             <Link
               to="/try-now"
-              className="hidden md:inline-flex text-sm font-medium bg-primary text-primary-foreground px-5 py-2 rounded-full transition-all hover:shadow-[0_0_20px_rgba(124,77,255,0.45)]"
+              className="hidden lg:inline-flex text-sm font-medium bg-primary text-primary-foreground px-5 py-2 rounded-full transition-all hover:shadow-[0_0_20px_rgba(124,77,255,0.45)]"
             >
               Try Now
             </Link>
 
             <button
-              className="md:hidden"
+              className="lg:hidden"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -130,7 +131,7 @@ export function Navigation() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="absolute top-20 left-4 right-4 glass-card bg-background/95 backdrop-blur-2xl rounded-2xl p-4 md:hidden flex flex-col gap-2 shadow-2xl animate-in fade-in slide-in-from-top-4">
+          <div className="absolute top-20 left-4 right-4 glass-card bg-background/95 backdrop-blur-2xl rounded-2xl p-4 lg:hidden flex flex-col gap-2 shadow-2xl animate-in fade-in slide-in-from-top-4">
             {navLinks.map((link) => (
               <div key={link.name}>
                 {link.dropdown ? (
