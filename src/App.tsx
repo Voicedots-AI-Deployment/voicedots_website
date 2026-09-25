@@ -120,6 +120,7 @@ export function App() {
           <Route path="/dmk" element={<DmkPage />} />
           <Route path="/sapthagiri" element={<SapthagiriPage />} />
           <Route path="/kct" element={<KctPage />} />
+          <Route path="/blog" element={<BlogsSection />} />
           <Route path="/blogs" element={<BlogsSection />} />
           <Route path="/blogs/:slug" element={<BlogPostPage />} />
           <Route path="/secure-data" element={<SecureDataPage />} />
