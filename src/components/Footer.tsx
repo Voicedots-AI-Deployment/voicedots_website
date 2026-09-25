@@ -64,10 +64,10 @@ export function Footer() {
               {/* Column 2 */}
               <div className="flex flex-col gap-3 text-sm">
                 <h3 className="font-semibold text-foreground tracking-wider uppercase mb-1">Capabilities</h3>
-                <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">Inbound Calls</Link>
-                <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">Outbound Campaigns</Link>
-                <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">Lead Qualification</Link>
-                <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">24/7 Support</Link>
+                <Link to="/capabilities/inbound-calls" className="text-muted-foreground hover:text-primary transition-colors">Inbound Calls</Link>
+                <Link to="/capabilities/outbound-campaigns" className="text-muted-foreground hover:text-primary transition-colors">Outbound Campaigns</Link>
+                <Link to="/capabilities/lead-qualification" className="text-muted-foreground hover:text-primary transition-colors">Lead Qualification</Link>
+                <Link to="/capabilities/24-7-support" className="text-muted-foreground hover:text-primary transition-colors">24/7 Support</Link>
               </div>
 
               {/* Column 3 */}

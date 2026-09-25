@@ -24,6 +24,8 @@ import { BlogPostPage } from "@/pages/BlogPostPage";
 import { IntegratePage } from "@/pages/IntegratePage";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { InterviewsPage } from "@/pages/InterviewsPage";
+import { AboutPage } from "@/pages/AboutPage";
+import { CapabilityPage } from "@/pages/CapabilityPage";
 
 /** Routes where the client provides their own chrome (nav + footer). */
 const CLIENT_DEMO_ROUTES = ["/dmk", "/sapthagiri", "/kct", "/ecom"];
@@ -115,6 +117,8 @@ export function App() {
           <Route path="/try-on-website" element={<TryOnWebsitePage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/capabilities/:slug" element={<CapabilityPage />} />
           <Route path="/terms" element={<TermsAndConditionsPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/dmk" element={<DmkPage />} />
