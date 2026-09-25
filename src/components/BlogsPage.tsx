@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { fetchPublicJson } from '@/lib/publicApi';
 
 interface Blog {
   id: string;
@@ -21,12 +22,7 @@ export function BlogsSection() {
     async function fetchBlogs() {
       setLoading(true);
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/public/blogs`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch blogs');
-        }
-        const data = await response.json();
-        setBlogs(data as Blog[]);
+        setBlogs(await fetchPublicJson<Blog[]>('blogs'));
       } catch (err) {
         console.error('Failed to fetch blogs:', err);
       } finally {

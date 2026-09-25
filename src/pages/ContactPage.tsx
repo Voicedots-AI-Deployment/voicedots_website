@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ArrowUp } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { publicApiUrl } from '@/lib/publicApi';
 
 
 export function ContactPage() {
@@ -54,7 +55,7 @@ export function ContactPage() {
 
     try {
       // 1. Send data to our FastAPI backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/public/contact`, {
+      const response = await fetch(publicApiUrl('contact'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

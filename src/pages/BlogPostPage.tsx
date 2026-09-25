@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { GlobalMeshBackground } from '@/components/GlobalMeshBackground';
+import { fetchPublicJson } from '@/lib/publicApi';
 
 interface Blog {
     id: string;
@@ -25,12 +26,7 @@ export function BlogPostPage() {
 
             setLoading(true);
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/public/blogs/${slug}`);
-                if (!response.ok) {
-                    throw new Error('Blog not found.');
-                }
-                const data = await response.json();
-                setBlog(data as Blog);
+                setBlog(await fetchPublicJson<Blog>(`blogs/${encodeURIComponent(slug)}`));
             } catch (err: any) {
                 console.error('Error fetching blog:', err);
                 setError('Blog not found.');
