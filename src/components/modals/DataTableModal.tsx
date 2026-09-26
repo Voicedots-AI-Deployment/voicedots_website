@@ -25,6 +25,8 @@ export default function DataTableModal({
   if (!isOpen) return null;
 
   const columns = data.length ? Object.keys(data[0]) : [];
+  const firstRecord = data[0];
+  const isExamResults = Boolean(firstRecord && "Semester" in firstRecord && "SGPA" in firstRecord && "CGPA" in firstRecord);
 
   const handleDownload = async () => {
     if (!data || data.length === 0) return;
@@ -147,6 +149,27 @@ export default function DataTableModal({
           ) : (
             // TABLE STATE
             <div className="flex-1 overflow-auto custom-scrollbar">
+              {isExamResults && firstRecord && (
+                <section aria-label="Semester summary" className="mx-5 mt-5 rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-white p-5 shadow-sm dark:border-violet-400/20 dark:from-violet-950/40 dark:to-black/30">
+                  <h4 className="text-sm font-bold text-violet-950 dark:text-violet-100">Semester summary</h4>
+                  <p className="mt-1 text-xs text-muted-foreground">Historical marks report compared with current enrollment.</p>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    {[
+                      ["Report semester", firstRecord.Semester],
+                      ["Current semester", firstRecord["Current Semester"]],
+                      ["Academic year", firstRecord["Academic Year"]],
+                      ["Result", firstRecord.Result],
+                      ["SGPA", firstRecord.SGPA],
+                      ["CGPA", firstRecord.CGPA],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="min-w-0 rounded-xl border border-violet-100 bg-white/80 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700/70 dark:text-violet-200/70">{label}</p>
+                        <p className="mt-1 truncate text-sm font-bold text-foreground">{value == null || value === "" ? "Not supplied" : String(value)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
               <table className="min-w-full text-sm text-left">
                 <thead className="sticky top-0 z-10">
                   {/* Glass header for the table itself */}

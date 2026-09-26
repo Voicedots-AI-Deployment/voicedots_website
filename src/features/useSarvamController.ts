@@ -131,6 +131,7 @@ export function useSarvamController() {
     const [rollModalKind, setRollModalKind] = useState<StudentIntent>("fee");
     const lookupIntentRef = useRef<StudentIntent>("fee");
     const attendancePeriodRef = useRef<"today" | "week" | "month" | "semester">("today");
+    const requestedSemesterRef = useRef<number | null>(null);
     const avatarsRef = useRef<Avatar[]>([]);
     // Set once the visitor verifies their registered number. While it holds a
     // student, lookups use that student's identifiers and the roll-number popup
@@ -166,7 +167,7 @@ export function useSarvamController() {
     const rowsForStudentRecord = (payload: any, intent: StudentIntent) => {
         const common = { Student: payload.student_name, Department: payload.department, "Academic Year": payload.academic_year };
         if (intent === "marks") {
-            return (payload.subjects || []).map((s: any) => ({ ...common, Semester: payload.semester, Subject: s.subject, Marks: s.marks, Grade: s.grade,
+            return (payload.subjects || []).map((s: any) => ({ ...common, Semester: payload.semester, "Current Semester": payload.current_semester, Subject: s.subject, Marks: s.marks, Grade: s.grade,
                 Result: payload.overall_result, SGPA: payload.semester_gpa, CGPA: payload.overall_cgpa }));
         }
         if (intent === "attendance" && Array.isArray(payload.hours)) {
@@ -220,21 +221,39 @@ export function useSarvamController() {
             : intent === "academic_contacts" ? "Academic Contacts" : "Student Fee Details";
         setTableState({ isOpen: true, isLoading: true, data: [], title: `${rollNo} ${titleSuffix}`, emptyMessage: "" });
         try {
-            const period = intent === "attendance" ? `?period=${attendancePeriodRef.current}` : "";
-            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${period}`);
+            const params = new URLSearchParams();
+            if (intent === "attendance") params.set("period", attendancePeriodRef.current);
+            if (intent === "marks" && requestedSemesterRef.current != null) {
+                params.set("semester", String(requestedSemesterRef.current));
+            }
+            const query = params.size ? `?${params.toString()}` : "";
+            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${query}`);
             if (!response.ok) throw new Error(`Student lookup failed (${response.status})`);
             const result: any = await response.json();
             const rows = result.status === "found" ? rowsForStudentRecord(result, intent) : [];
-            const emptyMessage = rows.length === 0
-                ? `No records found for "${rollNo.trim()}".` + (intent === "marks"
+            let emptyMessage = "";
+            if (!rows.length && intent === "marks" && result.status === "semester_not_found") {
+                const available = Array.isArray(result.available_semesters) ? result.available_semesters.join(", ") : "";
+                emptyMessage = `No report is stored for semester ${result.requested_semester}.` +
+                    (available ? ` Available reports: semesters ${available}.`
+                        : result.available_semester ? ` Available report: semester ${result.available_semester}.` : "");
+            } else if (!rows.length && intent === "marks" && result.status === "semester_unavailable") {
+                emptyMessage = `This marks report does not identify semester ${result.requested_semester}.`;
+            } else if (!rows.length && intent === "marks" && result.status === "invalid_semester") {
+                emptyMessage = "Semester numbers must be whole numbers from 1 to 12.";
+            } else if (!rows.length) {
+                emptyMessage = `No records found for "${rollNo.trim()}".` + (intent === "marks"
                     ? " Exam results need the student's Register Number (e.g. SP23EEU194), which is different from the fee roll number."
-                    : " Fee and attendance lookups need the student's college Roll Number (e.g. SPC25ENU018).")
-                : "";
+                    : " Fee and attendance lookups need the student's college Roll Number (e.g. SPC25ENU018).");
+            }
             setTableState((prev) => ({ ...prev, isLoading: false, data: rows, emptyMessage }));
             // Tell the bot the outcome NOW (table just appeared) so it acknowledges
             // promptly instead of only when the user closes the panel.
             sendJSON({ type: "FEE_RESULT", status: rows.length ? "shown" : "empty",
-                       intent: lookupIntentRef.current, rollNo: rollNo.trim() });
+                       intent: lookupIntentRef.current, rollNo: rollNo.trim(),
+                       requested_semester: requestedSemesterRef.current,
+                       available_semester: result.available_semester,
+                       available_semesters: result.available_semesters, lookup_status: result.status });
         } catch (err) {
             console.error("Error fetching student record:", err);
             setTableState((prev) => ({ ...prev, isLoading: false }));
@@ -402,6 +421,12 @@ export function useSarvamController() {
             const intent: StudentIntent = ["marks", "attendance", "academic_review", "academic_contacts"].includes(rawIntent)
                 ? rawIntent : "fee";
             lookupIntentRef.current = intent;
+            const rawSemester = msg.args?.semester;
+            const hasSemester = rawSemester !== undefined && rawSemester !== null;
+            const requestedSemester = Number(rawSemester);
+            requestedSemesterRef.current = intent === "marks" && hasSemester
+                ? (typeof rawSemester === "boolean" || !Number.isFinite(requestedSemester) ? 0 : requestedSemester)
+                : null;
             if (["today", "week", "month", "semester"].includes(msg.args?.period)) {
                 attendancePeriodRef.current = msg.args.period;
             }
