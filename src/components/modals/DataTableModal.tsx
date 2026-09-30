@@ -163,7 +163,7 @@ export default function DataTableModal({
                       ["CGPA", firstRecord.CGPA],
                     ].map(([label, value]) => (
                       <div key={String(label)} className="min-w-0 rounded-xl border border-violet-100 bg-white/80 px-3 py-2 dark:border-white/10 dark:bg-white/5">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700/70 dark:text-violet-200/70">{label}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-700/70 dark:text-violet-200/70">{String(label)}</p>
                         <p className="mt-1 truncate text-sm font-bold text-foreground">{value == null || value === "" ? "Not supplied" : String(value)}</p>
                       </div>
                     ))}

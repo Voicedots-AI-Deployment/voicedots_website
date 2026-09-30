@@ -13,6 +13,7 @@ export type VerifiedSession = {
 
 type LoginModalProps = {
   isOpen: boolean;
+  agentId?: string;
   onClose: () => void;
   // Called with a session when the registered number was verified, and with
   // nothing when the visitor chose to continue by typing a roll number.
@@ -20,7 +21,7 @@ type LoginModalProps = {
   onFailure: () => void;
 };
 
-export function LoginModal({ isOpen, onClose, onSuccess, onFailure }: LoginModalProps) {
+export function LoginModal({ isOpen, agentId, onClose, onSuccess, onFailure }: LoginModalProps) {
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -48,7 +49,7 @@ export function LoginModal({ isOpen, onClose, onSuccess, onFailure }: LoginModal
       const res = await fetch(`${STUDENT_API}/verify/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim() }),
+        body: JSON.stringify({ phone: phone.trim(), agent_id: agentId }),
       });
       const data = await res.json();
       if (data.status === "sent") {

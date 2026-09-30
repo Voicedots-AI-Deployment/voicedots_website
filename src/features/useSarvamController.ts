@@ -167,7 +167,7 @@ export function useSarvamController() {
     const rowsForStudentRecord = (payload: any, intent: StudentIntent) => {
         const common = { Student: payload.student_name, Department: payload.department, "Academic Year": payload.academic_year };
         if (intent === "marks") {
-            return (payload.subjects || []).map((s: any) => ({ ...common, Semester: payload.semester, "Current Semester": payload.current_semester, Subject: s.subject, Marks: s.marks, Grade: s.grade,
+            return (payload.subjects || []).map((s: any) => ({ ...common, Semester: s.semester ?? payload.semester, "Current Semester": payload.current_semester, Subject: s.subject, Marks: s.marks ?? s.score, Grade: s.grade,
                 Result: payload.overall_result, SGPA: payload.semester_gpa, CGPA: payload.overall_cgpa }));
         }
         if (intent === "attendance" && Array.isArray(payload.hours)) {
@@ -227,7 +227,10 @@ export function useSarvamController() {
                 params.set("semester", String(requestedSemesterRef.current));
             }
             const query = params.size ? `?${params.toString()}` : "";
-            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${query}`);
+            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${query}`, {
+                headers: linkedSessionTokenRef.current
+                    ? { Authorization: `Bearer ${linkedSessionTokenRef.current}` } : {},
+            });
             if (!response.ok) throw new Error(`Student lookup failed (${response.status})`);
             const result: any = await response.json();
             const rows = result.status === "found" ? rowsForStudentRecord(result, intent) : [];

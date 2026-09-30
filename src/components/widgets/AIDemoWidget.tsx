@@ -167,6 +167,7 @@ export default function AIDemoWidget() {
     <>
       {/* ================= MODALS ================= */}
       <LoginModal
+        agentId={agent_id}
         isOpen={loginOpen}
         onClose={() => setLoginOpen(false)}
         onSuccess={handleLoginSuccess}
