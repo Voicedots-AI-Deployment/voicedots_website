@@ -127,11 +127,13 @@ export function useSarvamController() {
     const [ticketData] = useState<any>(null);
 
     const [rollModalOpen, setRollModalOpen] = useState(false);
-    type StudentIntent = "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts";
+    type StudentIntent = "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts" |
+        "internal_marks" | "semester_marks" | "timetable" | "homework" | "circulars" | "exams" |
+        "hostel_attendance" | "mess_attendance";
     const [rollModalKind, setRollModalKind] = useState<StudentIntent>("fee");
     const lookupIntentRef = useRef<StudentIntent>("fee");
-    const attendancePeriodRef = useRef<"today" | "week" | "month" | "semester">("today");
     const requestedSemesterRef = useRef<number | null>(null);
+    const attendancePeriodRef = useRef<"today" | "week" | "month" | "semester">("today");
     const avatarsRef = useRef<Avatar[]>([]);
     // Set once the visitor verifies their registered number. While it holds a
     // student, lookups use that student's identifiers and the roll-number popup
@@ -166,9 +168,12 @@ export function useSarvamController() {
 
     const rowsForStudentRecord = (payload: any, intent: StudentIntent) => {
         const common = { Student: payload.student_name, Department: payload.department, "Academic Year": payload.academic_year };
-        if (intent === "marks") {
+        if (["marks", "internal_marks", "semester_marks"].includes(intent) && Array.isArray(payload.subjects)) {
             return (payload.subjects || []).map((s: any) => ({ ...common, Semester: s.semester ?? payload.semester, "Current Semester": payload.current_semester, Subject: s.subject, Marks: s.marks ?? s.score, Grade: s.grade,
                 Result: payload.overall_result, SGPA: payload.semester_gpa, CGPA: payload.overall_cgpa }));
+        }
+        if (Array.isArray(payload.items)) {
+            return payload.items.map((item: any) => ({ ...common, ...item }));
         }
         if (intent === "attendance" && Array.isArray(payload.hours)) {
             return payload.hours.map((h: any) => ({ ...common, Period: payload.period, Hour: h.hour, Time: h.time, Subject: h.subject, Status: h.status,
@@ -215,7 +220,11 @@ export function useSarvamController() {
     // from the typed roll-number popup or straight from a verified session.
     const runStudentLookup = async (rollNo: string) => {
         const intent = lookupIntentRef.current;
-        const titleSuffix = intent === "marks" ? "Exam Results" : intent === "attendance"
+        const titleSuffix = intent === "marks" ? "Exam Results" : intent === "internal_marks" ? "Internal Marks"
+            : intent === "semester_marks" ? "Semester Marks" : intent === "timetable" ? "Class Timetable"
+            : intent === "homework" ? "Homework" : intent === "circulars" ? "Circulars"
+            : intent === "exams" ? "Exam Schedule" : intent === "hostel_attendance" ? "Hostel Attendance"
+            : intent === "mess_attendance" ? "Mess Attendance" : intent === "attendance"
             ? `${attendancePeriodRef.current[0].toUpperCase()}${attendancePeriodRef.current.slice(1)} Attendance`
             : intent === "academic_review" ? "Academic Review"
             : intent === "academic_contacts" ? "Academic Contacts" : "Student Fee Details";
@@ -223,40 +232,54 @@ export function useSarvamController() {
         try {
             const params = new URLSearchParams();
             if (intent === "attendance") params.set("period", attendancePeriodRef.current);
-            if (intent === "marks" && requestedSemesterRef.current != null) {
+            if (["marks", "internal_marks", "semester_marks"].includes(intent) && requestedSemesterRef.current !== null) {
                 params.set("semester", String(requestedSemesterRef.current));
             }
-            const query = params.size ? `?${params.toString()}` : "";
-            const response = await fetch(`${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}${query}`, {
-                headers: linkedSessionTokenRef.current
-                    ? { Authorization: `Bearer ${linkedSessionTokenRef.current}` } : {},
-            });
+            const query = params.toString();
+            const url = `${STUDENT_API}/records/${intent}/${encodeURIComponent(rollNo.trim())}` + (query ? "?" + query : "");
+            const response = await fetch(url, { headers: linkedSessionTokenRef.current
+                ? { Authorization: `Bearer ${linkedSessionTokenRef.current}` } : {} });
             if (!response.ok) throw new Error(`Student lookup failed (${response.status})`);
             const result: any = await response.json();
-            const rows = result.status === "found" ? rowsForStudentRecord(result, intent) : [];
+            let rows = result.status === "found" ? rowsForStudentRecord(result, intent) : [];
+            if (["marks", "internal_marks", "semester_marks"].includes(intent) && result.status === "found" && rows.length === 0) {
+                rows = [{ Student: result.student_name, Department: result.department,
+                    "Academic Year": result.academic_year, Semester: result.semester,
+                    "Current Semester": result.current_semester,
+                    Result: result.overall_result, SGPA: result.semester_gpa, CGPA: result.overall_cgpa,
+                    "Subject Details": "No subject-level rows are present in this report." }];
+            }
             let emptyMessage = "";
-            if (!rows.length && intent === "marks" && result.status === "semester_not_found") {
-                const available = Array.isArray(result.available_semesters) ? result.available_semesters.join(", ") : "";
+            if (result.status === "semester_not_found") {
+                const availableSemesters = Array.isArray(result.available_semesters)
+                    ? result.available_semesters.join(", ") : "";
                 emptyMessage = `No report is stored for semester ${result.requested_semester}.` +
-                    (available ? ` Available reports: semesters ${available}.`
+                    (availableSemesters ? ` Available reports: semesters ${availableSemesters}.`
                         : result.available_semester ? ` Available report: semester ${result.available_semester}.` : "");
-            } else if (!rows.length && intent === "marks" && result.status === "semester_unavailable") {
-                emptyMessage = `This marks report does not identify semester ${result.requested_semester}.`;
-            } else if (!rows.length && intent === "marks" && result.status === "invalid_semester") {
-                emptyMessage = "Semester numbers must be whole numbers from 1 to 12.";
-            } else if (!rows.length) {
-                emptyMessage = `No records found for "${rollNo.trim()}".` + (intent === "marks"
-                    ? " Exam results need the student's Register Number (e.g. SP23EEU194), which is different from the fee roll number."
-                    : " Fee and attendance lookups need the student's college Roll Number (e.g. SPC25ENU018).");
+            } else if (result.status === "semester_unavailable") {
+                emptyMessage = `This student has no semester label on the stored marks report for semester ${result.requested_semester}.`;
+            } else if (result.status === "invalid_semester") {
+                emptyMessage = "Semester must be between 1 and 12.";
+            } else if (result.status === "not_found" || result.status === "empty") {
+                emptyMessage = intent === "marks"
+                    ? `No marks report found for register number "${rollNo.trim()}".`
+                    : `No records found for roll number "${rollNo.trim()}".`;
+            } else if (result.status === "found" && rows.length === 0) {
+                emptyMessage = `No records found for "${rollNo.trim()}".`;
             }
             setTableState((prev) => ({ ...prev, isLoading: false, data: rows, emptyMessage }));
             // Tell the bot the outcome NOW (table just appeared) so it acknowledges
             // promptly instead of only when the user closes the panel.
-            sendJSON({ type: "FEE_RESULT", status: rows.length ? "shown" : "empty",
-                       intent: lookupIntentRef.current, rollNo: rollNo.trim(),
-                       requested_semester: requestedSemesterRef.current,
+            const academicSummary = ["marks", "internal_marks", "semester_marks"].includes(intent) && result.status === "found" ? {
+                semester: result.semester, semester_gpa: result.semester_gpa,
+                overall_cgpa: result.overall_cgpa, overall_result: result.overall_result,
+            } : {};
+            const outcome = result.status === "found" ? "shown"
+                : ["not_found", "empty", "semester_not_found", "semester_unavailable", "invalid_semester"].includes(result.status) ? "empty" : "error";
+            sendJSON({ type: "FEE_RESULT", status: outcome, intent: lookupIntentRef.current,
+                       rollNo: rollNo.trim(), requested_semester: requestedSemesterRef.current,
                        available_semester: result.available_semester,
-                       available_semesters: result.available_semesters, lookup_status: result.status });
+                       available_semesters: result.available_semesters, lookup_status: result.status, ...academicSummary });
         } catch (err) {
             console.error("Error fetching student record:", err);
             setTableState((prev) => ({ ...prev, isLoading: false }));
@@ -275,7 +298,7 @@ export function useSarvamController() {
     const linkedIdentifier = (intent: StudentIntent) => {
         const s = linkedStudentRef.current;
         if (!s) return null;
-        return intent === "marks" ? s.registration_number : s.roll_number;
+        return ["marks", "internal_marks", "semester_marks"].includes(intent) ? s.registration_number : s.roll_number;
     };
 
     const handleRollNumberCancel = async () => {
@@ -421,13 +444,13 @@ export function useSarvamController() {
             }
             linkedStudentRef.current = cached?.verified?.students.length === 1 ? cached.verified.students[0] : null;
             const rawIntent = msg.args?.intent;
-            const intent: StudentIntent = ["marks", "attendance", "academic_review", "academic_contacts"].includes(rawIntent)
+            const intent: StudentIntent = ["marks", "attendance", "academic_review", "academic_contacts", "internal_marks", "semester_marks", "timetable", "homework", "circulars", "exams", "hostel_attendance", "mess_attendance"].includes(rawIntent)
                 ? rawIntent : "fee";
             lookupIntentRef.current = intent;
             const rawSemester = msg.args?.semester;
             const hasSemester = rawSemester !== undefined && rawSemester !== null;
             const requestedSemester = Number(rawSemester);
-            requestedSemesterRef.current = intent === "marks" && hasSemester
+            requestedSemesterRef.current = ["marks", "internal_marks", "semester_marks"].includes(intent) && hasSemester
                 ? (typeof rawSemester === "boolean" || !Number.isFinite(requestedSemester) ? 0 : requestedSemester)
                 : null;
             if (["today", "week", "month", "semester"].includes(msg.args?.period)) {

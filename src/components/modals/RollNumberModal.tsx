@@ -7,7 +7,9 @@ interface RollNumberModalProps {
   isLoading?: boolean;
   onClose: () => void;
   onSubmit: (rollNo: string) => void;
-  kind?: "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts";
+  kind?: "fee" | "marks" | "attendance" | "academic_review" | "academic_contacts" |
+    "internal_marks" | "semester_marks" | "timetable" | "homework" | "circulars" | "exams" |
+    "hostel_attendance" | "mess_attendance";
 }
 
 export default function RollNumberModal({
@@ -17,8 +19,14 @@ export default function RollNumberModal({
   onSubmit,
   kind = "fee",
 }: RollNumberModalProps) {
-  const isMarks = kind === "marks";
-  const actionLabel = isMarks ? "Get Marks" : kind === "attendance" ? "Get Attendance"
+  const isMarks = ["marks", "internal_marks", "semester_marks"].includes(kind);
+  const actionLabel = kind === "internal_marks" ? "Get Internal Marks"
+    : kind === "semester_marks" ? "Get Semester Marks"
+    : kind === "timetable" ? "Get Timetable" : kind === "homework" ? "Get Homework"
+    : kind === "circulars" ? "Get Circulars" : kind === "exams" ? "Get Exam Schedule"
+    : kind === "hostel_attendance" ? "Get Hostel Attendance"
+    : kind === "mess_attendance" ? "Get Mess Attendance"
+    : isMarks ? "Get Marks" : kind === "attendance" ? "Get Attendance"
     : kind === "academic_review" ? "Get Academic Review"
     : kind === "academic_contacts" ? "Get Academic Contacts" : "Get Fee Details";
   const fieldLabel = isMarks ? "Register Number" : "Roll Number";
